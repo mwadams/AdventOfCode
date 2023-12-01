@@ -88,7 +88,7 @@
             formatter.Format(result);
         }
 
-        private (long Value, int FirstOffset) First(ReadOnlySpan<char> line)
+        private static (long Value, int FirstOffset) First(ReadOnlySpan<char> line)
         {
             int index = line.Length - 1;
             long value = 0;
@@ -113,7 +113,7 @@
             return (found ? value : -1, index);
         }
 
-        private long Last(ReadOnlySpan<char> line)
+        private static long Last(ReadOnlySpan<char> line)
         {
             int index = 0;
             long value = 0;
