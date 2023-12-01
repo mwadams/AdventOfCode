@@ -9,7 +9,6 @@
         private static readonly SearchValues<char> Digits = SearchValues.Create("1234567989");
         private static readonly (string Text, long Value)[] TextAndDigits =
             [
-                ("0", 0),
                 ("1", 1),
                 ("2", 2),
                 ("3", 3),
