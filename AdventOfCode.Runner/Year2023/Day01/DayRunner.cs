@@ -69,10 +69,8 @@
             where TFormatter : IResultFormatter
         {
             long result = 0;
-            int lineIndex = 0;
-            foreach (var line in lines)
+            foreach (string line in lines)
             {
-                lineIndex++;
                 ReadOnlySpan<char> lineAsSpan = line.AsSpan();
                 (long firstValue, int firstOffset) = First(lineAsSpan);
                 if(firstValue >= 0 && firstOffset < lineAsSpan.Length)
