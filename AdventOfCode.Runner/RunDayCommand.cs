@@ -52,7 +52,7 @@ public class RunDayCommand : AsyncCommand<RunDayCommand.Settings>
 
         if (!settings.Test.HasValue)
         {
-            test = AnsiConsole.Ask<bool>("Test?", true);
+            test = AnsiConsole.Confirm("Test?", true);
         }
 
         AnsiConsole.MarkupLine($"[bold]Running day {day} of year {year} part {part}[/]");
