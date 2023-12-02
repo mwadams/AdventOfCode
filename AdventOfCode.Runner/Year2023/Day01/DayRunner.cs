@@ -46,8 +46,6 @@
         {
             long result = 0;
 
-            Span<char> characters = stackalloc char[2];
-
             foreach (var line in lines)
             {
                 ReadOnlySpan<char> lineSpan = line.AsSpan();
@@ -56,9 +54,7 @@
 
                 if (firstIndex <= lastIndex)
                 {
-                    characters[0] = line[firstIndex];
-                    characters[1] = line[lastIndex];
-                    result += long.Parse(characters);
+                    result += (10 * (line[firstIndex] - '0')) + (line[lastIndex] - '0');
                 }
             }
 
