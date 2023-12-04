@@ -29,7 +29,7 @@
                 int count = ParseLine(line);
                 if (count > 0)
                 {
-                    result += (long)2 << (count - 1);
+                    result += 1L << (count - 1);
                 }
             }
 
