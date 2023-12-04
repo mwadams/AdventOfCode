@@ -29,7 +29,7 @@
                 int count = ParseLine(line);
                 if (count > 0)
                 {
-                    result += (long)Math.Pow(2, count - 1);
+                    result += (long)2 << (count - 1);
                 }
             }
 
