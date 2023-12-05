@@ -47,7 +47,7 @@
 
             Span<Mapper> fertilizerToWaterBuffer = stackalloc Mapper[45];
             int numberOfFertilizerToWater = ParseBuffer(lineSpan[offset..], fertilizerToWaterBuffer);
-            ReadOnlySpan<Mapper> fertilizerToWater = fertilizerToWaterBuffer[..numberOfSoilToFertilizer];
+            ReadOnlySpan<Mapper> fertilizerToWater = fertilizerToWaterBuffer[..numberOfFertilizerToWater];
 
             offset += 2 + numberOfFertilizerToWater;
 
@@ -120,14 +120,14 @@
             return outputIndex;
         }
 
-        private int ParseBuffer(ReadOnlySpan<string> lines, Span<Mapper> lightToTemperatureBuffer)
+        private int ParseBuffer(ReadOnlySpan<string> lines, Span<Mapper> buffer)
         {
             int lineIndex = 0;
             ReadOnlySpan<char> line = lines[lineIndex];
 
             while (line.Length > 0)
             {
-                lightToTemperatureBuffer[lineIndex] = ParseMapper(line);
+                buffer[lineIndex] = ParseMapper(line);
 
                 lineIndex++;
 

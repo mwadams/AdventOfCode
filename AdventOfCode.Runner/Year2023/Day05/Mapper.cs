@@ -3,17 +3,17 @@
 
 public readonly struct Mapper
 {
-    private readonly long destination;
-    private readonly long source;
-    private readonly long range;
-
     public Mapper(long destination, long source, long range)
     {
-        this.destination = destination;
-        this.source = source;
-        this.range = range;
+        Destination = destination;
+        Source = source;
+        Range = range;
     }
-    
+
+    public long Destination { get; }
+    public long Source { get; }
+    public long Range { get; }
+
     public static long GetDestination(ReadOnlySpan<Mapper> map, long input)
     {
         for(int i = 0; i < map.Length; i++)
@@ -29,11 +29,16 @@ public readonly struct Mapper
         return input;
     }
 
+    public override string ToString()
+    {
+        return $"<{Destination}, {Source}, {Range}>";
+    }
+
     private long GetDestination(long input)
     {
-        if (input >= source && input < source + range)
+        if (input >= Source && input < Source + Range)
         {
-            return (input - source) + destination;
+            return (input - Source) + Destination;
         }
 
         return -1;
