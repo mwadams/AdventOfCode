@@ -54,12 +54,24 @@
             int count = 0;
             foreach (var line in lines)
             {
-                ReadOnlySpan<char> lineSpan = line.AsSpan();
+                ReadOnlySpan<char> lineSpan = line.AsSpan()[..5];
                 int index = count;
-                scores[count++] = (ScoreHand(lineSpan[..5]), index);
+                // Count the jokers
+                int jokerCount = lineSpan.Count('J');
+                // Start with the first character larger than a joker
+                int nonJokerIndex = lineSpan.IndexOfAnyExcept('J');
+                if (nonJokerIndex == -1)
+                {
+                    // 5 of a kind Jokers
+                    scores[count++] = (7, index);
+                }
+                else
+                {
+                    scores[count++] = (ScoreHandForJoker(lineSpan[nonJokerIndex..], jokerCount), index);
+                }
             }
 
-            scores.Sort(SortScores);
+            scores.Sort(SortScoresForJoker);
 
             for (int i = 0; i < scores.Length; ++i)
             {
@@ -90,11 +102,137 @@
                 }
             }
 
-            // This indicates a duplicate count
+            // This indicates a duplicate card
             return 0;
         }
 
-        private int ScoreHand(ReadOnlySpan<char> hand)
+        private int SortScoresForJoker((int Score, int Index) x, (int Score, int Index) y)
+        {
+            int comparison = x.Score.CompareTo(y.Score);
+            if (comparison != 0)
+            {
+                return comparison;
+            }
+
+            ReadOnlySpan<char> x1 = lines[x.Index].AsSpan()[..5];
+            ReadOnlySpan<char> y1 = lines[y.Index].AsSpan()[..5];
+            for (int i = 0; i < 5; ++i)
+            {
+                int compare = ScoreCardForJoker(x1[i]).CompareTo(ScoreCardForJoker(y1[i]));
+                if (compare != 0)
+                {
+                    return compare;
+                }
+            }
+
+            // This indicates a duplicate card
+            return 0;
+        }
+
+        private static int ScoreHandForJoker(ReadOnlySpan<char> hand, int jokerCount)
+        {
+            int count = hand.Count(hand[0]) + jokerCount;
+            if (count == 5)
+            {
+                // 5 of a kind
+                return 7;
+            }
+
+            if (count == 4)
+            {
+                // Four of a kind
+                return 6;
+            }
+
+            if (count == 3)
+            {
+                if (hand.Length > 3)
+                {
+                    int notItIndex = hand[1..].IndexOfAnyExcept(hand[0], 'J') + 1;
+                    if (hand[1..].Count(hand[notItIndex]) == 2)
+                    {
+                        if (jokerCount == 2)
+                        {
+                            // Four of a kind with the new value
+                            return 6;
+                        }
+
+                        // Full House
+                        return 5;
+                    }
+                }
+
+                // Three of a kind
+                return 4;
+            }
+
+            if (count == 2)
+            {
+                if (hand.Length > 3)
+                {
+                    int firstNotItIndex = hand[1..].IndexOfAnyExcept(hand[0], 'J') + 1;
+                    int secondCount = hand[1..].Count(hand[firstNotItIndex]);
+                    if (secondCount == 3)
+                    {
+                        if (jokerCount == 1)
+                        {
+                            // Four of a kind
+                            return 6;
+                        }
+
+                        // Full House
+                        return 5;
+                    }
+                    else if (secondCount == 2)
+                    {
+                        if (jokerCount == 1)
+                        {
+                            // Three of a kind with the new value
+                            return 4;
+                        }
+
+                        // Two pair
+                        return 3;
+                    }
+
+                    if (hand.Length > firstNotItIndex + 1)
+                    {
+                        int secondNotItIndex = hand[(firstNotItIndex + 1)..].IndexOfAnyExcept(hand[0], hand[firstNotItIndex], 'J') + (firstNotItIndex + 1);
+                        if (hand[(firstNotItIndex + 1)..].Count(hand[secondNotItIndex]) == 2)
+                        {
+                            if (jokerCount == 1)
+                            {
+                                // Three of a kind with the new value
+                                return 4;
+                            }
+
+                            // Two Pair
+                            return 3;
+                        }
+                    }
+                }
+
+                // One pair
+                return 2;
+            }
+
+            // There was only 1 of this card
+            if (hand.Length > 3)
+            {
+                // The joker count must be zero, for us to have a score of 1
+                return ScoreHandForJoker(hand[1..], 0);
+            }
+
+            if (hand[^1] == hand[^2])
+            {
+                // One pair
+                return 2;
+            }
+
+            return 1;
+        }
+
+        private static int ScoreHand(ReadOnlySpan<char> hand)
         {
             int count = hand.Count(hand[0]);
             if (count == 5)
@@ -142,7 +280,7 @@
                         return 3;
                     }
 
-                    if (hand.Length > 4)
+                    if (hand.Length > (firstNotItIndex + 1))
                     {
                         int secondNotItIndex = hand[(firstNotItIndex + 1)..].IndexOfAnyExcept(hand[0], hand[firstNotItIndex]) + (firstNotItIndex + 1);
                         if (hand[(firstNotItIndex + 1)..].Count(hand[secondNotItIndex]) == 2)
@@ -163,7 +301,7 @@
                 return ScoreHand(hand[1..]);
             }
 
-            if (hand[hand.Length - 1] == hand[hand.Length - 2])
+            if (hand[^1] == hand[^2])
             {
                 // One pair
                 return 2;
@@ -172,7 +310,7 @@
             return 1;
         }
 
-        private int ScoreCard(char c)
+        private static int ScoreCard(char c)
         {
             return c switch
             {
@@ -184,5 +322,21 @@
                 _ => c - '0'
             };
         }
+
+        private static int ScoreCardForJoker(char c)
+        {
+            return c switch
+            {
+                'A' => 14,
+                'K' => 13,
+                'Q' => 12,
+                'T' => 10,
+                
+                'J' => 0,
+
+                _ => c - '0'
+            };
+        }
+
     }
 }
