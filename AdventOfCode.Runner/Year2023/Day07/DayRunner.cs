@@ -21,7 +21,7 @@
         public void SolvePart1<TFormatter>(TFormatter formatter)
             where TFormatter : IResultFormatter
         {
-            long result = 0;
+            int result = 0;
 
             Span<(int Score, int Index)> scores = stackalloc (int Score, int Index)[lines.Length];
 
@@ -37,12 +37,39 @@
 
             for (int i = 0; i < scores.Length; ++i)
             {
-                long winnings = long.Parse(lines[scores[i].Index].AsSpan()[6..]);
-                result += (i+1) * winnings;
+                int winnings = int.Parse(lines[scores[i].Index].AsSpan()[6..]);
+                result += (i + 1) * winnings;
             }
 
             formatter.Format(result);
         }
+
+        public void SolvePart2<TFormatter>(TFormatter formatter)
+            where TFormatter : IResultFormatter
+        {
+            int result = 0;
+
+            Span<(int Score, int Index)> scores = stackalloc (int Score, int Index)[lines.Length];
+
+            int count = 0;
+            foreach (var line in lines)
+            {
+                ReadOnlySpan<char> lineSpan = line.AsSpan();
+                int index = count;
+                scores[count++] = (ScoreHand(lineSpan[..5]), index);
+            }
+
+            scores.Sort(SortScores);
+
+            for (int i = 0; i < scores.Length; ++i)
+            {
+                int winnings = int.Parse(lines[scores[i].Index].AsSpan()[6..]);
+                result += (i + 1) * winnings;
+            }
+
+            formatter.Format(result);
+        }
+
 
         private int SortScores((int Score, int Index) x, (int Score, int Index) y)
         {
@@ -63,7 +90,7 @@
                 }
             }
 
-            Console.WriteLine("Unexpected identical hand in input range");
+            // This indicates a duplicate count
             return 0;
         }
 
@@ -136,6 +163,12 @@
                 return ScoreHand(hand[1..]);
             }
 
+            if (hand[hand.Length - 1] == hand[hand.Length - 2])
+            {
+                // One pair
+                return 2;
+            }
+
             return 1;
         }
 
@@ -150,13 +183,6 @@
                 'T' => 10,
                 _ => c - '0'
             };
-        }
-
-        public void SolvePart2<TFormatter>(TFormatter formatter)
-            where TFormatter : IResultFormatter
-        {
-            long result = 0;
-            formatter.Format(result);
         }
     }
 }
