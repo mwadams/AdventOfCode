@@ -149,7 +149,7 @@
                 if (hand.Length > 3)
                 {
                     int notItIndex = hand[1..].IndexOfAnyExcept(hand[0], 'J') + 1;
-                    if (hand[1..].Count(hand[notItIndex]) == 2)
+                    if (hand[notItIndex..].Count(hand[notItIndex]) == 2)
                     {
                         if (jokerCount == 2)
                         {
@@ -171,7 +171,7 @@
                 if (hand.Length > 3)
                 {
                     int firstNotItIndex = hand[1..].IndexOfAnyExcept(hand[0], 'J') + 1;
-                    int secondCount = hand[1..].Count(hand[firstNotItIndex]);
+                    int secondCount = hand[firstNotItIndex..].Count(hand[firstNotItIndex]);
                     if (secondCount == 3)
                     {
                         if (jokerCount == 1)
@@ -198,7 +198,7 @@
                     if (hand.Length > firstNotItIndex + 1)
                     {
                         int secondNotItIndex = hand[(firstNotItIndex + 1)..].IndexOfAnyExcept(hand[0], hand[firstNotItIndex], 'J') + (firstNotItIndex + 1);
-                        if (hand[(firstNotItIndex + 1)..].Count(hand[secondNotItIndex]) == 2)
+                        if (hand[secondNotItIndex..].Count(hand[secondNotItIndex]) == 2)
                         {
                             if (jokerCount == 1)
                             {
@@ -252,7 +252,7 @@
                 if (hand.Length > 3)
                 {
                     int notItIndex = hand[1..].IndexOfAnyExcept(hand[0]) + 1;
-                    if (hand[1..].Count(hand[notItIndex]) == 2)
+                    if (hand[notItIndex..].Count(hand[notItIndex]) == 2)
                     {
                         // Full House
                         return 5;
@@ -268,7 +268,7 @@
                 if (hand.Length > 3)
                 {
                     int firstNotItIndex = hand[1..].IndexOfAnyExcept(hand[0]) + 1;
-                    int secondCount = hand[1..].Count(hand[firstNotItIndex]);
+                    int secondCount = hand[firstNotItIndex..].Count(hand[firstNotItIndex]);
                     if (secondCount == 3)
                     {
                         // Full House
@@ -283,7 +283,7 @@
                     if (hand.Length > (firstNotItIndex + 1))
                     {
                         int secondNotItIndex = hand[(firstNotItIndex + 1)..].IndexOfAnyExcept(hand[0], hand[firstNotItIndex]) + (firstNotItIndex + 1);
-                        if (hand[(firstNotItIndex + 1)..].Count(hand[secondNotItIndex]) == 2)
+                        if (hand[secondNotItIndex..].Count(hand[secondNotItIndex]) == 2)
                         {
                             // Two Pair
                             return 3;
@@ -327,9 +327,9 @@
         {
             return c switch
             {
-                'A' => 14,
-                'K' => 13,
-                'Q' => 12,
+                'A' => 13,
+                'K' => 12,
+                'Q' => 11,
                 'T' => 10,
                 
                 'J' => 0,
