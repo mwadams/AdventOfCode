@@ -121,12 +121,12 @@
             formatter.Format(result);
         }
 
-        private static long LowestCommonMultiple(Span<long> counts)
+        private static long LowestCommonMultiple(ReadOnlySpan<long> counts)
         {
             return LowestCommonMultiple(counts[0], counts[1..]);
         }
 
-        private static long LowestCommonMultiple(long a, Span<long> counts)
+        private static long LowestCommonMultiple(long a, ReadOnlySpan<long> counts)
         {
             if (counts.Length == 1)
             {
