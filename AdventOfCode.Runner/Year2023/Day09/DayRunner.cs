@@ -23,14 +23,17 @@
         {
             long result =
                 AccumulateResult(
-                    static (result, diffs) =>
+                    static (result, diffs, lineCount, diffCount) =>
                     {
-                        long current = diffs[^1][^1];
+                        int currentLength = lineCount - diffCount + 1;
+                        int diffOffset = diffs.Length - 1;
+                        long current = 0;
 
-                        for (var i = diffs.Length - 2; i >= 0; i--)
+                        while (diffOffset >= 0)
                         {
-                            // Diff the diffs
-                            current = diffs[i][^1] + current;
+                            current = diffs[diffOffset] + current;
+                            diffOffset -= currentLength;
+                            currentLength += 1;
                         }
 
                         return result + current;
@@ -44,14 +47,18 @@
         {
             long result =
                 AccumulateResult(
-                    static (result, diffs) =>
+                    static (result, diffs, lineCount, diffCount) =>
                     {
-                        long current = diffs[^1][0];
+                        int currentLength = lineCount - diffCount + 1;
+                        int diffOffset = diffs.Length - currentLength;
 
-                        for (var i = diffs.Length - 2; i >= 0; i--)
+                        long current = 0;
+
+                        while (diffOffset >= 0)
                         {
-                            // Diff the diffs
-                            current = diffs[i][0] - current;
+                            current = diffs[diffOffset] - current;
+                            currentLength += 1;
+                            diffOffset -= currentLength;
                         }
 
                         return result + current;
@@ -60,11 +67,12 @@
             formatter.Format(result);
         }
 
-        private bool HasNonZeroes(ReadOnlySpan<long> currentNumbers)
+        private bool AreNotSame(ReadOnlySpan<long> currentNumbers)
         {
-            foreach(long num in currentNumbers)
+            long firstNum = currentNumbers[0];
+            for (int i = 1; i < currentNumbers.Length; ++i)
             {
-                if (num != 0)
+                if (currentNumbers[i] != firstNum)
                 {
                     return true;
                 }
@@ -73,41 +81,53 @@
             return false;
         }
 
-        delegate long DiffMunger(long result, ReadOnlySpan<long[]> diffs);
+        delegate long DiffMunger(long result, ReadOnlySpan<long> diffs, int numberCount, int diffCount);
 
         private long AccumulateResult(DiffMunger diffMunger)
         {
             long result = 0;
 
-            long[][] diffs = new long[lines[0].Length][];
-
             foreach (ReadOnlySpan<char> line in lines)
             {
-                int diffCount = 0;
-                long[] currentNumbers = ParseLine(line);
-                diffs[diffCount++] = currentNumbers;
-                while (HasNonZeroes(currentNumbers))
-                {
-                    var lastDiff = currentNumbers;
-                    currentNumbers = new long[currentNumbers.Length - 1];
-                    for (int i = 0; i < lastDiff.Length - 1; i++)
-                    {
-                        currentNumbers[i] = lastDiff[i + 1] - lastDiff[i];
-                    }
-
-                    diffs[diffCount++] = currentNumbers;
-                }
-
-                result = diffMunger(result, diffs.AsSpan()[..diffCount]);
+                result = ProcessLine(diffMunger, result, line);
             }
 
             return result;
         }
 
-        private long[] ParseLine(ReadOnlySpan<char> line)
+        private long ProcessLine(DiffMunger diffMunger, long result, ReadOnlySpan<char> line)
         {
-            Span<long> result = stackalloc long[line.Length / 2];
+            Span<long> numberBuffer = stackalloc long[21];
+            int numberCount = ParseLine(line, numberBuffer);
 
+            Span<long> currentNumbers = numberBuffer[..numberCount];
+
+            int totalLength = ((currentNumbers.Length + 1) * (currentNumbers.Length + 1) / 2) + 1;
+            Span<long> diffs = stackalloc long[totalLength];
+            int diffOffset = 0;
+            int diffCount = 1;
+            currentNumbers.CopyTo(diffs[diffOffset..]);
+            int currentLength = currentNumbers.Length;
+            while (AreNotSame(currentNumbers))
+            {
+                Span<long> lastDiff = diffs.Slice(diffOffset, currentLength);
+                diffOffset += currentLength;
+                currentLength--;
+                currentNumbers = diffs.Slice(diffOffset, currentLength);
+                for (int i = 0; i < lastDiff.Length - 1; i++)
+                {
+                    currentNumbers[i] = lastDiff[i + 1] - lastDiff[i];
+                }
+
+                diffCount++;
+            }
+
+            result = diffMunger(result, diffs[..(diffOffset + currentLength)], numberCount, diffCount);
+            return result;
+        }
+
+        private int ParseLine(ReadOnlySpan<char> line, Span<long> result)
+        {
             int start = 0;
             int end = 1;
             int index = 0;
@@ -128,7 +148,7 @@
             // And add the one at the end
             result[index++] = long.Parse(line[start..]);
 
-            return result[..index].ToArray();
+            return index;
         }
     }
 }
