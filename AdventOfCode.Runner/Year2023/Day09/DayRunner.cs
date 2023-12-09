@@ -27,7 +27,7 @@
                     {
                         long current = diffs[^1][^1];
 
-                        for (var i = diffs.Count - 2; i >= 0; i--)
+                        for (var i = diffs.Length - 2; i >= 0; i--)
                         {
                             // Diff the diffs
                             current = diffs[i][^1] + current;
@@ -48,7 +48,7 @@
                     {
                         long current = diffs[^1][0];
 
-                        for (var i = diffs.Count - 2; i >= 0; i--)
+                        for (var i = diffs.Length - 2; i >= 0; i--)
                         {
                             // Diff the diffs
                             current = diffs[i][0] - current;
@@ -73,14 +73,19 @@
             return false;
         }
 
-        private long AccumulateResult(Func<long, List<long[]>, long> diffMunger)
+        delegate long DiffMunger(long result, ReadOnlySpan<long[]> diffs);
+
+        private long AccumulateResult(DiffMunger diffMunger)
         {
             long result = 0;
 
+            long[][] diffs = new long[lines[0].Length][];
+
             foreach (ReadOnlySpan<char> line in lines)
             {
+                int diffCount = 0;
                 long[] currentNumbers = ParseLine(line);
-                List<long[]> diffs = new(currentNumbers.Length) { currentNumbers };
+                diffs[diffCount++] = currentNumbers;
                 while (HasNonZeroes(currentNumbers))
                 {
                     var lastDiff = currentNumbers;
@@ -90,10 +95,10 @@
                         currentNumbers[i] = lastDiff[i + 1] - lastDiff[i];
                     }
 
-                    diffs.Add(currentNumbers);
+                    diffs[diffCount++] = currentNumbers;
                 }
 
-                result = diffMunger(result, diffs);
+                result = diffMunger(result, diffs.AsSpan()[..diffCount]);
             }
 
             return result;
