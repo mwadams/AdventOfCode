@@ -60,26 +60,34 @@
             formatter.Format(result);
         }
 
-        private bool HasNonZeroes(List<long> currentNumbers)
+        private bool HasNonZeroes(ReadOnlySpan<long> currentNumbers)
         {
-            return currentNumbers.Any(v => v != 0);
+            foreach(long num in currentNumbers)
+            {
+                if (num != 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
-        private long AccumulateResult(Func<long, List<List<long>>, long> diffMunger)
+        private long AccumulateResult(Func<long, List<long[]>, long> diffMunger)
         {
             long result = 0;
 
             foreach (ReadOnlySpan<char> line in lines)
             {
-                List<long> currentNumbers = ParseLine(line);
-                List<List<long>> diffs = new(currentNumbers.Count) { currentNumbers };
+                long[] currentNumbers = ParseLine(line);
+                List<long[]> diffs = new(currentNumbers.Length) { currentNumbers };
                 while (HasNonZeroes(currentNumbers))
                 {
                     var lastDiff = currentNumbers;
-                    currentNumbers = [];
-                    for (int i = 0; i < lastDiff.Count - 1; i++)
+                    currentNumbers = new long[currentNumbers.Length - 1];
+                    for (int i = 0; i < lastDiff.Length - 1; i++)
                     {
-                        currentNumbers.Add(lastDiff[i + 1] - lastDiff[i]);
+                        currentNumbers[i] = lastDiff[i + 1] - lastDiff[i];
                     }
 
                     diffs.Add(currentNumbers);
@@ -91,17 +99,18 @@
             return result;
         }
 
-        private List<long> ParseLine(ReadOnlySpan<char> line)
+        private long[] ParseLine(ReadOnlySpan<char> line)
         {
-            List<long> result = [];
+            Span<long> result = stackalloc long[line.Length / 2];
 
             int start = 0;
             int end = 1;
+            int index = 0;
             while (end < line.Length)
             {
                 if (line[end] == ' ')
                 {
-                    result.Add(long.Parse(line[start..end]));
+                    result[index++] = long.Parse(line[start..end]);
                     start = end + 1;
                     end = start + 1;
                 }
@@ -112,9 +121,9 @@
             }
 
             // And add the one at the end
-            result.Add(long.Parse(line[start..]));
+            result[index++] = long.Parse(line[start..]);
 
-            return result;
+            return result[..index].ToArray();
         }
     }
 }
