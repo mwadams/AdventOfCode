@@ -1,6 +1,7 @@
 ﻿namespace AdventOfCode.Runner.Year2023.Day09
 {
     using AdventOfCode.Common;
+    using System.Runtime.CompilerServices;
     using System.Threading.Tasks;
 
     public class DayRunner : IDay<DayRunner>
@@ -67,7 +68,8 @@
             formatter.Format(result);
         }
 
-        private bool AreNotSame(ReadOnlySpan<long> currentNumbers)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool AreNotSame(ReadOnlySpan<long> currentNumbers)
         {
             long firstNum = currentNumbers[0];
             for (int i = 1; i < currentNumbers.Length; ++i)
@@ -95,7 +97,7 @@
             return result;
         }
 
-        private long ProcessLine(DiffMunger diffMunger, long result, ReadOnlySpan<char> line)
+        private static long ProcessLine(DiffMunger diffMunger, long result, ReadOnlySpan<char> line)
         {
             Span<long> numberBuffer = stackalloc long[21];
             int numberCount = ParseLine(line, numberBuffer);
@@ -110,7 +112,7 @@
             int currentLength = currentNumbers.Length;
             while (AreNotSame(currentNumbers))
             {
-                Span<long> lastDiff = diffs.Slice(diffOffset, currentLength);
+                Span<long> lastDiff = currentNumbers;
                 diffOffset += currentLength;
                 currentLength--;
                 currentNumbers = diffs.Slice(diffOffset, currentLength);
@@ -126,7 +128,7 @@
             return result;
         }
 
-        private int ParseLine(ReadOnlySpan<char> line, Span<long> result)
+        private static int ParseLine(ReadOnlySpan<char> line, Span<long> result)
         {
             int start = 0;
             int end = 1;
