@@ -29,7 +29,8 @@
 
             Span<Tile> map = stackalloc Tile[width * height];
             (int startX, int startY) = BuildMap(lines, map, width, height);
-            result = FindMaxPath(startX, startY, map, width, height) / 2;
+            Span<Tile> visited = stackalloc Tile[width * height];
+            result = FindMaxPath(visited, startX, startY, map, width, height) / 2;
             formatter.Format(result);
         }
 
@@ -37,7 +38,143 @@
             where TFormatter : IResultFormatter
         {
             long result = 0;
+
+            int width = lines[0].Length;
+            int height = lines.Length;
+
+            Span<Tile> map = stackalloc Tile[width * height];
+            (int startX, int startY) = BuildMap(lines, map, width, height);
+            Span<Tile> visited = stackalloc Tile[width * height];
+
+            FindMaxPath(visited, startX, startY, map, width, height);
+
+            result = CountInside(visited, width, height);
+
             formatter.Format(result);
+        }
+
+        private static long CountInside(Span<Tile> map, int width, int height)
+        {
+            long count = 0;
+            for (int y = 0; y < height; ++y)
+            {
+                int insideCount = 0;
+
+                RemoveLoops(map.Slice(y * width, width));
+
+                for (int x = 0; x < width; ++x)
+                {
+                    int offset = y * width + x;
+                    Tile tile = map[offset];
+                    if (tile == Tile.None)
+                    {
+                        if (insideCount % 2 == 1)
+                        {
+                            count++;
+                        }
+                        else
+                        {
+                            map[offset] = Tile.Filled;
+                        }
+                    }
+                    else if ((tile & Tile.NorthAndSouth) != 0)
+                    {
+                        insideCount++;
+                    }
+                }
+            }
+
+            return count;
+        }
+
+        private enum LoopState
+        {
+            LookingForSouthAndEastOrNorthAndEast,
+            FoundSouthAndEast,
+            FoundNorthAndEast,
+        }
+
+        private static void RemoveLoops(Span<Tile> span)
+        {
+            LoopState state = LoopState.LookingForSouthAndEastOrNorthAndEast;
+
+            int index = 0;
+            int startOfRun = 0;
+
+            foreach (Tile tile in span)
+            {
+                if (state == LoopState.LookingForSouthAndEastOrNorthAndEast)
+                {
+                    if (tile == Tile.SouthAndEast)
+                    {
+                        startOfRun = index;
+                        state = LoopState.FoundSouthAndEast;
+                    }
+                    else if (tile == Tile.NorthAndEast)
+                    {
+                        startOfRun = index;
+                        state = LoopState.FoundNorthAndEast;
+                    }
+                }
+                else if (state == LoopState.FoundSouthAndEast)
+                {
+                    if (tile == Tile.SouthAndWest)
+                    {
+                        span[startOfRun..(index + 1)].Fill(Tile.Filled);
+                        state = LoopState.LookingForSouthAndEastOrNorthAndEast;
+                    }
+                    else if (tile == Tile.NorthAndWest)
+                    {
+                        span[startOfRun..index].Fill(Tile.Filled);
+                        span[index] = Tile.NorthAndSouth;
+                        state = LoopState.LookingForSouthAndEastOrNorthAndEast;
+                    }
+                    else if (tile == Tile.EastAndWest)
+                    {
+                        // NOP
+                    }
+                    else
+                    {
+                        state = LoopState.LookingForSouthAndEastOrNorthAndEast;
+                    }
+                }
+                else if (state == LoopState.FoundNorthAndEast)
+                {
+                    if (tile == Tile.NorthAndWest)
+                    {
+                        span[startOfRun..(index + 1)].Fill(Tile.Filled);
+                        state = LoopState.LookingForSouthAndEastOrNorthAndEast;
+                    }
+                    else if (tile == Tile.SouthAndWest)
+                    {
+                        span[startOfRun..index].Fill(Tile.Filled);
+                        span[index] = Tile.NorthAndSouth;
+                        state = LoopState.LookingForSouthAndEastOrNorthAndEast;
+                    }
+                    else if (tile == Tile.EastAndWest)
+                    {
+                        // NOP
+                    }
+                    else
+                    {
+                        state = LoopState.LookingForSouthAndEastOrNorthAndEast;
+                    }
+                }
+
+                ++index;
+            }
+        }
+
+        private static void Dump(ReadOnlySpan<Tile> visited, int width, int height)
+        {
+            for (int y = 0; y < height; ++y)
+            {
+                for (int x = 0; x < width; ++x)
+                {
+                    Console.Write(Reverse(visited[y * width + x]));
+                }
+                Console.WriteLine();
+            }
         }
 
         private static (int StartX, int StartY) BuildMap(ReadOnlySpan<string> lines, Span<Tile> map, int width, int height)
@@ -48,12 +185,12 @@
             int x = 0;
             int y = 0;
 
-            foreach(ReadOnlySpan<char> line in lines)
+            foreach (ReadOnlySpan<char> line in lines)
             {
-                foreach(char mapTile in line)
+                foreach (char mapTile in line)
                 {
                     Tile tile = GetTile(mapTile);
-                    if ((tile & Tile.Start) !=0)
+                    if ((tile & Tile.Start) != 0)
                     {
                         startX = x;
                         startY = y;
@@ -71,28 +208,27 @@
             return (startX, startY);
         }
 
-        private static long FindMaxPath(int startX, int startY, ReadOnlySpan<Tile> map, int width, int height)
+        private static long FindMaxPath(Span<Tile> visited, int startX, int startY, ReadOnlySpan<Tile> map, int width, int height)
         {
-            HashSet<(int x, int y)> visited = new(width * height);
             Stack<(int x, int y, long count)> stillToVisit = new(width * height);
 
             stillToVisit.Push((startX, startY, 0));
             return FindPathsCore(stillToVisit, visited, map, width, height);
         }
 
-        private static long FindPathsCore(Stack<(int x, int y, long count)> stillToVisit, HashSet<(int x, int y)> visited, ReadOnlySpan<Tile> map, int width, int height)
+        private static long FindPathsCore(Stack<(int x, int y, long count)> stillToVisit, Span<Tile> visited, ReadOnlySpan<Tile> map, int width, int height)
         {
             long maxCount = 0;
 
             while (stillToVisit.TryPop(out (int X, int Y, long MaxCount) current))
             {
-                if (visited.Contains((current.X, current.Y)))
+                if (visited[current.Y * width + current.X] != 0)
                 {
                     // Do we have to continue, or do we have to add the loop count?
                     continue;
                 }
 
-                visited.Add((current.X, current.Y));
+                visited[current.Y * width + current.X] = map[current.Y * width + current.X];
 
                 Directions availableDirections = AvailableDirections(current.X, current.Y, map, width, height);
                 if (availableDirections == Directions.None)
@@ -134,8 +270,6 @@
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static Tile GetActualStartTile(int x, int y, ReadOnlySpan<Tile> map, int width, int height)
         {
-            Tile currentLocation = GetLocation(x, y, map, width);
-
             Tile north = y > 0 ? GetLocation(x, y - 1, map, width) : Tile.None;
             Tile south = y < height - 1 ? GetLocation(x, y + 1, map, width) : Tile.None;
             Tile east = x < width - 1 ? GetLocation(x + 1, y, map, width) : Tile.None;
@@ -150,17 +284,17 @@
             {
                 connectsEast = true;
             }
-            
+
             if ((west & Tile.ConnectsEast) != 0)
             {
                 connectsWest = true;
             }
-            
+
             if ((north & Tile.ConnectsSouth) != 0)
             {
                 connectsNorth = true;
             }
-            
+
             if ((south & Tile.ConnectsNorth) != 0)
             {
                 connectsSouth = true;
@@ -172,7 +306,7 @@
                 {
                     return Tile.EastAndWest;
                 }
-                
+
                 if (connectsNorth)
                 {
                     return Tile.NorthAndEast;
@@ -230,19 +364,19 @@
             {
                 directions |= Directions.East;
             }
-            
+
             if ((currentLocation & Tile.ConnectsWest) != 0 &&
                      (west & Tile.ConnectsEast) != 0)
             {
                 directions |= Directions.West;
             }
-            
+
             if ((currentLocation & Tile.ConnectsNorth) != 0 &&
                      (north & Tile.ConnectsSouth) != 0)
             {
                 directions |= Directions.North;
             }
-            
+
             if ((currentLocation & Tile.ConnectsSouth) != 0 &&
                      (south & Tile.ConnectsNorth) != 0)
             {
@@ -274,6 +408,24 @@
                 _ => throw new InvalidOperationException($"Invalid tile: {tile}"),
             };
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static char Reverse(Tile tile)
+        {
+            return tile switch
+            {
+                Tile.None => '.',
+                Tile.Start => 'S',
+                Tile.Filled => '*',
+                Tile.NorthAndSouth => '|',
+                Tile.EastAndWest => '-',
+                Tile.NorthAndEast => 'L',
+                Tile.NorthAndWest => 'J',
+                Tile.SouthAndWest => '7',
+                Tile.SouthAndEast => 'F',
+                _ => throw new InvalidOperationException($"Invalid tile: {tile}"),
+            };
+        }
     }
 
     [Flags]
@@ -298,6 +450,7 @@
         NorthAndWest = 0b0001_0000,
         SouthAndWest = 0b0010_0000,
         SouthAndEast = 0b0100_0000,
+        Filled = 0b1000_0000,
 
         ConnectsNorth = NorthAndSouth | NorthAndEast | NorthAndWest,
         ConnectsSouth = NorthAndSouth | SouthAndEast | SouthAndWest,
