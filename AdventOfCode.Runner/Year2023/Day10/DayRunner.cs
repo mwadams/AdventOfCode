@@ -210,17 +210,16 @@
 
         private static long FindMaxPath(Span<Tile> visited, int startX, int startY, ReadOnlySpan<Tile> map, int width, int height)
         {
-            Stack<(int x, int y, long count)> stillToVisit = new(width * height);
-
-            stillToVisit.Push((startX, startY, 0));
-            return FindPathsCore(stillToVisit, visited, map, width, height);
+            return FindPathsCore(startX, startY, visited, map, width, height);
         }
 
-        private static long FindPathsCore(Stack<(int x, int y, long count)> stillToVisit, Span<Tile> visited, ReadOnlySpan<Tile> map, int width, int height)
+        private static long FindPathsCore(int startX, int startY, Span<Tile> visited, ReadOnlySpan<Tile> map, int width, int height)
         {
+            (int X, int Y) current = (startX, startY);
+
             long maxCount = 0;
 
-            while (stillToVisit.TryPop(out (int X, int Y, long MaxCount) current))
+            while (true)
             {
                 int offset = current.Y * width + current.X;
 
@@ -238,36 +237,31 @@
                     continue;
                 }
 
-                long currentMaxCount = current.MaxCount + 1;
+                maxCount++;
                 if ((availableDirections & Directions.North) != 0 
                     && visited[(current.Y - 1) * width + current.X] == Tile.None)
                 {
-                    stillToVisit.Push((current.X, current.Y - 1, currentMaxCount));
+                    current = (current.X, current.Y - 1);
                 }
-
-                if ((availableDirections & Directions.South) != 0
+                else if ((availableDirections & Directions.South) != 0
                      && visited[(current.Y + 1) * width + current.X] == Tile.None)
 
                 {
-                    stillToVisit.Push((current.X, current.Y + 1, currentMaxCount));
+                    current = (current.X, current.Y + 1);
                 }
-
-                if ((availableDirections & Directions.East) != 0
+                else if ((availableDirections & Directions.East) != 0
                     && visited[current.Y * width + current.X + 1] == Tile.None)
                 {
-                    stillToVisit.Push((current.X + 1, current.Y, currentMaxCount));
+                    current = (current.X + 1, current.Y);
                 }
-
-                if ((availableDirections & Directions.West) != 0
+                else if ((availableDirections & Directions.West) != 0
                     && visited[current.Y * width + current.X - 1] == Tile.None)
                 {
-                    stillToVisit.Push((current.X - 1, current.Y, currentMaxCount));
+                    current = (current.X - 1, current.Y);
                 }
-
-                // Increment the count by 1
-                if (currentMaxCount > maxCount)
+                else
                 {
-                    maxCount = currentMaxCount;
+                    break;
                 }
             }
 
