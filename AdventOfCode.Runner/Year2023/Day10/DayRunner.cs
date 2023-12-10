@@ -222,13 +222,15 @@
 
             while (stillToVisit.TryPop(out (int X, int Y, long MaxCount) current))
             {
-                if (visited[current.Y * width + current.X] != 0)
+                int offset = current.Y * width + current.X;
+
+                if (visited[offset] != 0)
                 {
                     // Do we have to continue, or do we have to add the loop count?
                     continue;
                 }
 
-                visited[current.Y * width + current.X] = map[current.Y * width + current.X];
+                visited[offset] = map[offset];
 
                 Directions availableDirections = AvailableDirections(current.X, current.Y, map, width, height);
                 if (availableDirections == Directions.None)
@@ -237,22 +239,27 @@
                 }
 
                 long currentMaxCount = current.MaxCount + 1;
-                if ((availableDirections & Directions.North) != 0)
+                if ((availableDirections & Directions.North) != 0 
+                    && visited[(current.Y - 1) * width + current.X] == Tile.None)
                 {
                     stillToVisit.Push((current.X, current.Y - 1, currentMaxCount));
                 }
 
-                if ((availableDirections & Directions.South) != 0)
+                if ((availableDirections & Directions.South) != 0
+                     && visited[(current.Y + 1) * width + current.X] == Tile.None)
+
                 {
                     stillToVisit.Push((current.X, current.Y + 1, currentMaxCount));
                 }
 
-                if ((availableDirections & Directions.East) != 0)
+                if ((availableDirections & Directions.East) != 0
+                    && visited[current.Y * width + current.X + 1] == Tile.None)
                 {
                     stillToVisit.Push((current.X + 1, current.Y, currentMaxCount));
                 }
 
-                if ((availableDirections & Directions.West) != 0)
+                if ((availableDirections & Directions.West) != 0
+                    && visited[current.Y * width + current.X - 1] == Tile.None)
                 {
                     stillToVisit.Push((current.X - 1, current.Y, currentMaxCount));
                 }
