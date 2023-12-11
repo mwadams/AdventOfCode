@@ -22,13 +22,12 @@
             where TFormatter : IResultFormatter
         {
             long result = 0;
-            // Eyeballing the results, there aren't more than 1/3 galaxies in a line
-            Span<(int X, int Y)> galaxyBuffer = stackalloc (int X, int Y)[lines.Length * lines[0].Length];
+            Span<(long X, long Y)> galaxyBuffer = stackalloc (long X, long Y)[lines.Length * lines[0].Length];
 
-            int galaxyCount = FindGalaxies(lines, galaxyBuffer);
+            int galaxyCount = FindGalaxies(lines, galaxyBuffer, 2);
             
-            ReadOnlySpan<(int X, int Y)> galaxies = galaxyBuffer[..galaxyCount];
-            Span<int> distances = stackalloc int[galaxies.Length * (galaxies.Length - 1) / 2];
+            ReadOnlySpan<(long X, long Y)> galaxies = galaxyBuffer[..galaxyCount];
+            Span<long> distances = stackalloc long[galaxies.Length * (galaxies.Length - 1) / 2];
             GetWeights(galaxies, distances);
 
 
@@ -44,14 +43,29 @@
             where TFormatter : IResultFormatter
         {
             long result = 0;
+            Span<(long X, long Y)> galaxyBuffer = stackalloc (long X, long Y)[lines.Length * lines[0].Length];
+
+            int galaxyCount = FindGalaxies(lines, galaxyBuffer, 1_000_000);
+
+            ReadOnlySpan<(long X, long Y)> galaxies = galaxyBuffer[..galaxyCount];
+            Span<long> distances = stackalloc long[galaxies.Length * (galaxies.Length - 1) / 2];
+            GetWeights(galaxies, distances);
+
+
+            foreach (var distance in distances)
+            {
+                result += distance;
+            }
+
             formatter.Format(result);
         }
 
-        private static int FindGalaxies(ReadOnlySpan<string> lines, Span<(int X, int Y)> galaxies)
+        private static int FindGalaxies(ReadOnlySpan<string> lines, Span<(long X, long Y)> galaxies, long expansion)
         {
             int galaxyCount = 0;
-            Span<int> rowOffsets = stackalloc int[lines.Length];
-            Span<int> columnOffsets = stackalloc int[lines[0].Length];
+            Span<long> rowOffsets = stackalloc long[lines.Length];
+            Span<long> columnOffsets = stackalloc long[lines[0].Length];
+            Span<(int X, int Y)> initialGalaxies = stackalloc (int X, int Y)[galaxies.Length];
 
             for(int y = 0; y < lines.Length; y++)
             {
@@ -61,7 +75,7 @@
                 {
                     while (true)
                     {
-                        galaxies[galaxyCount++] = (index, y);
+                        initialGalaxies[galaxyCount++] = (index, y);
                         columnOffsets[index] = 1;
                         int nextIndex = line[(index + 1)..].IndexOf('#');
                         if (nextIndex < 0)
@@ -76,18 +90,19 @@
                 }
                 else
                 {
-                    rowOffsets[y] = (y > 0 ? rowOffsets[y - 1] : 0) + 1;
+                    rowOffsets[y] = (y > 0 ? rowOffsets[y - 1] : 0) + (expansion - 1);
                 }
             }
 
             // Now, accumulate those column offsets
-            int columnAccumulator = 0;
+            long columnAccumulator = 0;
 
             for(int x = 0; x < columnOffsets.Length; ++x)
             {
                 if (columnOffsets[x] == 0)
                 {
-                    columnOffsets[x] = columnAccumulator++;
+                    columnOffsets[x] = columnAccumulator + (expansion - 1);
+                    columnAccumulator += (expansion - 1);
                 }
                 else
                 {
@@ -98,7 +113,7 @@
             // So now rowOffsets contain the value to add to the Y and columnOffsets contains the value to add to the X
             for(int i = 0; i < galaxyCount; i++)
             {
-                var galaxy = galaxies[i];
+                var galaxy = initialGalaxies[i];
                 galaxies[i] = (galaxy.X + columnOffsets[galaxy.X], galaxy.Y + rowOffsets[galaxy.Y]);
             }
 
@@ -106,7 +121,7 @@
         }
 
         // Betting on a travelling salesman problem next :)
-        private static void GetWeights(ReadOnlySpan<(int X, int Y)> points, Span<int> weights)
+        private static void GetWeights(ReadOnlySpan<(long X, long Y)> points, Span<long> weights)
         {
             int offset = 0;
             for(int i = 0; i < points.Length - 1; i++)
