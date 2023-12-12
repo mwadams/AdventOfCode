@@ -2,6 +2,8 @@
 {
     using AdventOfCode.Common;
     using System.Runtime.CompilerServices;
+    using System.Text;
+    using System.Text.RegularExpressions;
     using System.Threading.Tasks;
 
     public class DayRunner : IDay<DayRunner>
@@ -25,7 +27,7 @@
             long result = 0;
             foreach (ReadOnlySpan<char> line in lines)
             {
-                result += ProcessLine(line);
+                result += ProcessLinePt1(line);
             }
 
             formatter.Format(result);
@@ -35,17 +37,50 @@
             where TFormatter : IResultFormatter
         {
             long result = 0;
+
+            int index = 1;
+            foreach (ReadOnlySpan<char> line in lines)
+            {
+                result += ProcessLinePt2(line);
+                Console.WriteLine($"Processed line {index++}");
+            }
+
             formatter.Format(result);
         }
 
-        private static long ProcessLine(ReadOnlySpan<char> line)
+        private static long ProcessLinePt2(ReadOnlySpan<char> line)
+        {
+            long result = 0;
+            // By inspection, maximum size is <10
+            Span<int> groupBuffer = stackalloc int[10];
+            int groupCount = ReadLine(line, groupBuffer, out ReadOnlySpan<char> map);
+            int extendedMapLength = map.Length + 1;
+            Span<char> expandedMap = stackalloc char[(extendedMapLength * 5) - 1];
+            Span<int> expandedGroups = stackalloc int[groupCount * 5];
+
+            for (int i = 0; i < 5; ++i)
+            {
+                map.CopyTo(expandedMap[(extendedMapLength * i)..]);
+                int offset = (extendedMapLength * (i + 1)) - 1;
+                if (offset < expandedMap.Length)
+                {
+                    expandedMap[offset] = '?';
+                }
+
+                groupBuffer[..groupCount].CopyTo(expandedGroups[(groupCount * i)..]);
+            }
+
+            return CountCandidates(expandedGroups, MinimumLength(expandedGroups), expandedMap, []);
+        }
+
+        private static long ProcessLinePt1(ReadOnlySpan<char> line)
         {
             // By inspection, maximum size is <10
             Span<int> groupBuffer = stackalloc int[10];
             int groupCount = ReadLine(line, groupBuffer, out ReadOnlySpan<char> map);
             ReadOnlySpan<int> groups = groupBuffer[..groupCount];
 
-            return CountCandidates(groups, MinimumLength(groups), map);
+            return CountCandidates(groups, MinimumLength(groups), map, []);
         }
 
         private static int MinimumLength(ReadOnlySpan<int> groups)
@@ -59,12 +94,29 @@
             return minLength + groups.Length - 1;
         }
 
-        private static int CountCandidates(ReadOnlySpan<int> groups, int minimumLength, ReadOnlySpan<char> map)
+        private static long CountCandidates(ReadOnlySpan<int> groups, int minimumLength, ReadOnlySpan<char> map, Dictionary<string, long> seenPatterns)
         {
             int currentGroupLength = groups[0];
+
+            StringBuilder sb = new(groups.Length * 2 + map.Length + 1);
+
+            for(int i = 0; i < groups.Length; ++i)
+            {
+                sb.Append(groups[i]);
+                sb.Append(',');
+                sb.Append(map);
+            }
+
+            string matchKey = sb.ToString();
+
+            if (seenPatterns.TryGetValue(matchKey, out long cachedMatches))
+            {
+                return cachedMatches;
+            }
+
             int nextLength = minimumLength - currentGroupLength - 1;
 
-            int matches = 0;
+            long matches = 0;
             int currentIndex = 0;
             while (currentIndex <= map.Length - minimumLength)
             {
@@ -73,6 +125,7 @@
                     currentIndex++;
                     continue;
                 }
+
 
                 if (IsMatch(currentGroupLength, map[currentIndex..]))
                 {
@@ -86,8 +139,12 @@
                     }
                     else
                     {
-                        matches += CountCandidates(groups[1..], nextLength, map[(currentIndex + currentGroupLength + 1)..]);
+                        matches += CountCandidates(groups[1..], nextLength, map[(currentIndex + currentGroupLength + 1)..], seenPatterns);
                     }
+                }
+                else
+                {
+                    seenPatterns[matchKey] = 0;
                 }
 
 
@@ -101,6 +158,7 @@
                 currentIndex++;
             }
 
+            seenPatterns[matchKey] = matches;
             return matches;
         }
 
