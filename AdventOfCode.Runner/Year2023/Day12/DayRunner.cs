@@ -66,7 +66,7 @@
                 groupBuffer[..groupCount].CopyTo(expandedGroups[(groupCount * i)..]);
             }
 
-            return CountCandidatesWithMemoization(expandedGroups, MinimumLength(expandedGroups), expandedMap, []);
+            return CountCandidatesWithMemoization(expandedGroups, MinimumLength(expandedGroups), expandedMap, [], BuildKey(expandedGroups.Length, expandedMap.Length));
         }
 
         private static long ProcessLinePt1(ReadOnlySpan<char> line)
@@ -135,16 +135,9 @@
             return matches;
         }
 
-        private static long CountCandidatesWithMemoization(ReadOnlySpan<int> groups, int minimumLength, ReadOnlySpan<char> map, Dictionary<int, long> seenPatterns)
+        private static long CountCandidatesWithMemoization(ReadOnlySpan<int> groups, int minimumLength, ReadOnlySpan<char> map, Dictionary<int, long> seenPatterns, int matchKey)
         {
             int currentGroupLength = groups[0];
-
-            int matchKey = BuildKey(groups, map);
-
-            if (seenPatterns.TryGetValue(matchKey, out long cachedMatches))
-            {
-                return cachedMatches;
-            }
 
             int nextLength = minimumLength - currentGroupLength - 1;
 
@@ -171,7 +164,16 @@
                     }
                     else
                     {
-                        matches += CountCandidatesWithMemoization(groups[1..], nextLength, map[(currentIndex + currentGroupLength + 1)..], seenPatterns);
+                        int newMapOffset = currentIndex + currentGroupLength + 1;
+                        int newMatchKey = BuildKey(groups.Length - 1, map.Length - newMapOffset);
+                        if (seenPatterns.TryGetValue(newMatchKey, out long cachedInnerMatches))
+                        {
+                            matches += cachedInnerMatches;
+                        }
+                        else
+                        {
+                            matches += CountCandidatesWithMemoization(groups[1..], nextLength, map[newMapOffset..], seenPatterns, newMatchKey);
+                        }
                     }
                 }
 
@@ -190,9 +192,9 @@
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static int BuildKey(ReadOnlySpan<int> groups, ReadOnlySpan<char> map)
+        private static int BuildKey(int groupsLength, int mapLength)
         {
-            return (map.Length << 8) + groups.Length;
+            return (mapLength << 8) + groupsLength;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
