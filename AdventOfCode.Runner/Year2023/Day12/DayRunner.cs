@@ -2,8 +2,7 @@
 {
     using AdventOfCode.Common;
     using System.Runtime.CompilerServices;
-    using System.Text;
-    using System.Text.RegularExpressions;
+    using System.Runtime.InteropServices;
     using System.Threading.Tasks;
 
     public class DayRunner : IDay<DayRunner>
@@ -38,11 +37,9 @@
         {
             long result = 0;
 
-            int index = 1;
             foreach (ReadOnlySpan<char> line in lines)
             {
                 result += ProcessLinePt2(line);
-                Console.WriteLine($"Processed line {index++}");
             }
 
             formatter.Format(result);
@@ -50,7 +47,6 @@
 
         private static long ProcessLinePt2(ReadOnlySpan<char> line)
         {
-            long result = 0;
             // By inspection, maximum size is <10
             Span<int> groupBuffer = stackalloc int[10];
             int groupCount = ReadLine(line, groupBuffer, out ReadOnlySpan<char> map);
@@ -70,7 +66,7 @@
                 groupBuffer[..groupCount].CopyTo(expandedGroups[(groupCount * i)..]);
             }
 
-            return CountCandidates(expandedGroups, MinimumLength(expandedGroups), expandedMap, []);
+            return CountCandidatesWithMemoization(expandedGroups, MinimumLength(expandedGroups), expandedMap, []);
         }
 
         private static long ProcessLinePt1(ReadOnlySpan<char> line)
@@ -80,7 +76,7 @@
             int groupCount = ReadLine(line, groupBuffer, out ReadOnlySpan<char> map);
             ReadOnlySpan<int> groups = groupBuffer[..groupCount];
 
-            return CountCandidates(groups, MinimumLength(groups), map, []);
+            return CountCandidates(groups, MinimumLength(groups), map);
         }
 
         private static int MinimumLength(ReadOnlySpan<int> groups)
@@ -94,20 +90,56 @@
             return minLength + groups.Length - 1;
         }
 
-        private static long CountCandidates(ReadOnlySpan<int> groups, int minimumLength, ReadOnlySpan<char> map, Dictionary<string, long> seenPatterns)
+        private static int CountCandidates(ReadOnlySpan<int> groups, int minimumLength, ReadOnlySpan<char> map)
+        {
+            int currentGroupLength = groups[0];
+            int nextLength = minimumLength - currentGroupLength - 1;
+
+            int matches = 0;
+            int currentIndex = 0;
+            while (currentIndex <= map.Length - minimumLength)
+            {
+                if (map[currentIndex] == '.')
+                {
+                    currentIndex++;
+                    continue;
+                }
+
+                if (IsMatch(currentGroupLength, map[currentIndex..]))
+                {
+                    if (groups.Length == 1)
+                    {
+                        // We only match if there are no more #s after the end of this group
+                        if (map[(currentIndex + currentGroupLength)..].IndexOf('#') <= 0)
+                        {
+                            matches++;
+                        }
+                    }
+                    else
+                    {
+                        matches += CountCandidates(groups[1..], nextLength, map[(currentIndex + currentGroupLength + 1)..]);
+                    }
+                }
+
+
+                if (map[currentIndex] == '#')
+                {
+                    // We can't advance past a #, because it anchors us to this start place.
+                    break;
+                }
+
+                // Then add one more
+                currentIndex++;
+            }
+
+            return matches;
+        }
+
+        private static long CountCandidatesWithMemoization(ReadOnlySpan<int> groups, int minimumLength, ReadOnlySpan<char> map, Dictionary<int, long> seenPatterns)
         {
             int currentGroupLength = groups[0];
 
-            StringBuilder sb = new(groups.Length * 2 + map.Length + 1);
-
-            for(int i = 0; i < groups.Length; ++i)
-            {
-                sb.Append(groups[i]);
-                sb.Append(',');
-                sb.Append(map);
-            }
-
-            string matchKey = sb.ToString();
+            int matchKey = BuildKey(groups, map);
 
             if (seenPatterns.TryGetValue(matchKey, out long cachedMatches))
             {
@@ -139,7 +171,7 @@
                     }
                     else
                     {
-                        matches += CountCandidates(groups[1..], nextLength, map[(currentIndex + currentGroupLength + 1)..], seenPatterns);
+                        matches += CountCandidatesWithMemoization(groups[1..], nextLength, map[(currentIndex + currentGroupLength + 1)..], seenPatterns);
                     }
                 }
                 else
@@ -160,6 +192,17 @@
 
             seenPatterns[matchKey] = matches;
             return matches;
+        }
+
+        private static int BuildKey(ReadOnlySpan<int> groups, ReadOnlySpan<char> map)
+        {
+            // Can we get away with a hash as the key?
+            var groupsBytes = MemoryMarshal.Cast<int, byte>(groups);
+            var mapBytes = MemoryMarshal.Cast<char, byte>(map);
+            HashCode hash = new();
+            hash.AddBytes(groupsBytes);
+            hash.AddBytes(mapBytes);
+            return hash.ToHashCode();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
