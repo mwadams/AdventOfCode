@@ -194,15 +194,10 @@
             return matches;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static int BuildKey(ReadOnlySpan<int> groups, ReadOnlySpan<char> map)
         {
-            // Can we get away with a hash as the key?
-            var groupsBytes = MemoryMarshal.Cast<int, byte>(groups);
-            var mapBytes = MemoryMarshal.Cast<char, byte>(map);
-            HashCode hash = new();
-            hash.AddBytes(groupsBytes);
-            hash.AddBytes(mapBytes);
-            return hash.ToHashCode();
+            return (map.Length << 8) + groups.Length;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
