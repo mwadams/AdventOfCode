@@ -174,11 +174,6 @@
                         matches += CountCandidatesWithMemoization(groups[1..], nextLength, map[(currentIndex + currentGroupLength + 1)..], seenPatterns);
                     }
                 }
-                else
-                {
-                    seenPatterns[matchKey] = 0;
-                }
-
 
                 if (map[currentIndex] == '#')
                 {
