@@ -1,8 +1,6 @@
 ﻿namespace AdventOfCode.Runner.Year2023.Day13
 {
     using AdventOfCode.Common;
-    using System.ComponentModel;
-    using System.Threading.Tasks;
 
     public class DayRunner : IDay<DayRunner>
     {
@@ -87,11 +85,9 @@
             long horizontal = FindReflections(map, lines[0].Length, lines.Length);
             long vertical = FindReflections(transposedMap, lines.Length, lines[0].Length);
 
-            Dump(map, horizontal, vertical, lines[0].Length, lines.Length);
+            ////Dump(map, horizontal, vertical, lines[0].Length, lines.Length);
 
             result += (100 * horizontal) + vertical;
-
-            Console.WriteLine();
 
             return result;
         }
@@ -107,11 +103,9 @@
             long horizontal = FindReflectionsWithSmudge(map, lines[0].Length, lines.Length);
             long vertical = FindReflectionsWithSmudge(transposedMap, lines.Length, lines[0].Length);
 
-            Dump(map, horizontal, vertical, lines[0].Length, lines.Length);
+            ////Dump(map, horizontal, vertical, lines[0].Length, lines.Length);
 
             result += (100 * horizontal) + vertical;
-
-            Console.WriteLine();
 
             return result;
         }
