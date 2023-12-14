@@ -31,8 +31,6 @@
 
             result = TiltNorthAndCalculateLoad(map, lines[0].Length, lines.Length);
 
-            Dump(map, lines[0].Length, lines.Length);
-
             formatter.Format(result);
         }
 
@@ -45,35 +43,58 @@
 
             BuildMap(lines, map);
 
-            HashSet<int> seenConfiguration = [];
-
+            Span<int> seenResults = stackalloc int[125];
+            int seenResultCount = 0;
             bool cycled = false;
+
+
+            int startOfCycle = 0;
+            int nextCycle = 0;
+
+            Span<byte> cycleHash = stackalloc byte[16];
+            Span<byte> nextHash = stackalloc byte[16];
 
             for (int i = 0; i < 1000000000; ++i)
             {
                 TiltNorthAndCalculateLoad(map, lines[0].Length, lines.Length);
-                Dump(map, lines[0].Length, lines.Length);
                 TiltWestAndCalculateLoad(map, lines[0].Length, lines.Length);
-                Dump(map, lines[0].Length, lines.Length);
                 TiltSouthAndCalculateLoad(map, lines[0].Length, lines.Length);
-                Dump(map, lines[0].Length, lines.Length);
                 result = TiltEastAndCalculateLoad(map, lines[0].Length, lines.Length);
-                Dump(map, lines[0].Length, lines.Length);
 
-                if (!seenConfiguration.Add(result))
+                if (seenResultCount != 0 && seenResults[..seenResultCount].Contains(result))
                 {
                     if (!cycled)
                     {
                         cycled = true;
-                        Console.WriteLine($"Cycled after: {i} iterations.");
+                        startOfCycle = i;
+                        MD5.HashData(MemoryMarshal.AsBytes(map), cycleHash);
+                    }
+                    else
+                    {
+                        MD5.HashData(MemoryMarshal.AsBytes(map), nextHash);
+                        if (cycleHash.SequenceEqual(nextHash))
+                        {
+                            nextCycle = i;
+                            break;
+                        }
                     }
                 }
-
-                Console.WriteLine(result);
-                if (cycled)
+                else
                 {
-                    Console.ReadKey();
+                    seenResults[seenResultCount++] = result;
                 }
+            }
+
+            int consumedAtStart = startOfCycle;
+
+            int additionalCyclesRequired = ((1000000000 - consumedAtStart) % (nextCycle - startOfCycle)) - 1;
+            
+            for(int i =0; i < additionalCyclesRequired; ++i)
+            {
+                TiltNorthAndCalculateLoad(map, lines[0].Length, lines.Length);
+                TiltWestAndCalculateLoad(map, lines[0].Length, lines.Length);
+                TiltSouthAndCalculateLoad(map, lines[0].Length, lines.Length);
+                result = TiltEastAndCalculateLoad(map, lines[0].Length, lines.Length);
             }
 
             formatter.Format(result);
