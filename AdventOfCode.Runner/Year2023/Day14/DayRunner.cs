@@ -52,6 +52,7 @@
             int nextCycle = 0;
 
             Span<byte> cycleHash = stackalloc byte[16];
+            int cycleResult = 0;
             Span<byte> nextHash = stackalloc byte[16];
 
             for (int i = 0; i < 1000000000; ++i)
@@ -70,6 +71,7 @@
                         startOfCycle = i;
                         seenResults[seenResultCount++] = result;
                         MD5.HashData(MemoryMarshal.AsBytes(map), cycleHash);
+                        cycleResult = result;
                     }
                     else
                     {
@@ -78,13 +80,17 @@
                 }
                 else
                 {
-                    seenResults[seenResultCount++] = result;
-                    MD5.HashData(MemoryMarshal.AsBytes(map), nextHash);
-                    if (cycleHash.SequenceEqual(nextHash))
+                    if (result == cycleResult)
                     {
-                        nextCycle = i;
-                        break;
+                        MD5.HashData(MemoryMarshal.AsBytes(map), nextHash);
+                        if (cycleHash.SequenceEqual(nextHash))
+                        {
+                            nextCycle = i;
+                            break;
+                        }
                     }
+                    
+                    seenResults[seenResultCount++] = result;
                 }
             }
 
