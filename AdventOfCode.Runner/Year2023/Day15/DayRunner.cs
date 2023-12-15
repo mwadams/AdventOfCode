@@ -133,32 +133,32 @@
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             static void CommitChange(Span<Bucket> lenses, ReadOnlySpan<char> line, long key, int startFocalLengthIndex, int startLabelIndex, int afterLabelIndex, int index, bool add)
             {
-                string label = line[startLabelIndex..afterLabelIndex].ToString();
                 ref Bucket bucket = ref lenses[(int)key]; // It ends up as <256 but needs to be computed as a long
 
                 if (add)
                 {
                     int focalPower = int.Parse(line[startFocalLengthIndex..index]);
-                    AddLens(label, focalPower, ref bucket);
+                    AddLens(line, startLabelIndex, afterLabelIndex, focalPower, ref bucket);
                 }
                 else
                 {
-                    RemoveLens(label, ref bucket);
+                    RemoveLens(line, startLabelIndex, afterLabelIndex, ref bucket);
                 }
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void RemoveLens(string label, ref Bucket bucket)
+        private static void RemoveLens(ReadOnlySpan<char> line, int labelStart, int labelEnd, ref Bucket bucket)
         {
             bool removing = false;
+            ReadOnlySpan<char> label = line[labelStart..labelEnd];
 
             for (int i = 0; i < bucket.Count; ++i)
             {
                 ref Lens lens = ref bucket.Lenses[i];
                 if (!removing)
                 {
-                    if (lens.Label == label)
+                    if (line[lens.LabelStart..lens.LabelEnd].SequenceEqual(label))
                     {
                         removing = true;
                     }
@@ -177,7 +177,7 @@
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void AddLens(string label, int focalPower, ref Bucket bucket)
+        private static void AddLens(ReadOnlySpan<char> line, int labelStart, int labelEnd, int focalPower, ref Bucket bucket)
         {
             if (bucket.Capacity == 0)
             {
@@ -185,10 +185,11 @@
             }
             else
             {
+                ReadOnlySpan<char> label = line[labelStart..labelEnd];
                 for (int i = 0; i < bucket.Count; ++i)
                 {
                     ref Lens lens = ref bucket.Lenses[i];
-                    if (lens.Label == label)
+                    if (line[lens.LabelStart..lens.LabelEnd].SequenceEqual(label))
                     {
                         lens.Power = focalPower;
                         return;
@@ -213,11 +214,11 @@
                 }
             }
 
-            bucket.Lenses[bucket.Count] = new Lens(label, focalPower);
+            bucket.Lenses[bucket.Count] = new Lens(labelStart, labelEnd, focalPower);
             bucket.Count += 1;
         }
 
-        private record struct Lens(string Label, int Power);
+        private record struct Lens(int LabelStart, int LabelEnd, int Power);
         private record struct Bucket(int Capacity, int Count, Lens[] Lenses);
     }
 }
