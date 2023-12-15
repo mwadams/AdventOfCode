@@ -22,6 +22,29 @@
             where TFormatter : IResultFormatter
         {
             long result = 0;
+            long current = 0;
+            foreach(ReadOnlySpan<char> line in lines)
+            {
+                foreach(char c in line)
+                {
+                    if (c == ',')
+                    {
+                        result += current;
+                        current = 0;
+                        continue;
+                    }
+
+                    checked
+                    {
+                        current += c;
+                        current *= 17;
+                        current %= 256;
+                    }
+                }
+            }
+
+            result += current;
+
             formatter.Format(result);
         }
 
