@@ -29,11 +29,7 @@
 
             BuildMap(lines, map);
 
-            Stack<Beam> beams = new();
-
-            beams.Push(new Beam(BeamDirection.Right, 0, -1, 0));
-
-            result = Process(beams, map, width, height);
+            result = ProcessBeam(BeamDirection.GoingRight, -1, 0, map, width, height);
 
             formatter.Format(result);
         }
@@ -51,17 +47,13 @@
 
             map.CopyTo(mapBackup);
 
-            Stack<Beam> beams = new();
-
             for (int x = 0; x < width; x++)
             {
-                beams.Push(new Beam(BeamDirection.Bottom, 0, x, -1));
-                result = Math.Max(result, Process(beams, map, width, height));
+                result = Math.Max(result, ProcessBeam(BeamDirection.GoingDown, x, -1, map, width, height));
 
                 mapBackup.CopyTo(map);
 
-                beams.Push(new Beam(BeamDirection.Top, 0, x, height));
-                result = Math.Max(result, Process(beams, map, width, height));
+                result = Math.Max(result, ProcessBeam(BeamDirection.GoingUp, x, height, map, width, height));
 
                 // We *do* copy this time to prep for the first y
                 mapBackup.CopyTo(map);
@@ -69,13 +61,11 @@
 
             for (int y = 0; y < height; y++)
             {
-                beams.Push(new Beam(BeamDirection.Right, 0, -1, y));
-                result = Math.Max(result, Process(beams, map, width, height));
+                result = Math.Max(result, ProcessBeam(BeamDirection.GoingRight, -1, y, map, width, height));
 
                 mapBackup.CopyTo(map);
 
-                beams.Push(new Beam(BeamDirection.Left, 0, width, y));
-                result = Math.Max(result, Process(beams, map, width, height));
+                result = Math.Max(result, ProcessBeam(BeamDirection.GoingLeft, width, y, map, width, height));
 
                 if (y != height - 1)
                 {
@@ -87,28 +77,13 @@
             formatter.Format(result);
         }
 
-        private static long Process(Stack<Beam> beams, Span<Tile> map, int width, int height)
+        private static int ProcessBeam(BeamDirection direction, int x, int y, Span<Tile> map, int width, int height)
         {
-            long result = 0;
-
-            while (beams.TryPop(out Beam current))
-            {
-                result += ProcessBeam(current, beams, map, width, height);
-            }
-
-            return result;
-        }
-
-        private static long ProcessBeam(Beam beam, Stack<Beam> beams, Span<Tile> map, int width, int height)
-        {
-            int x = beam.X;
-            int y = beam.Y;
-            int energizedCount = beam.EnergizedCount;
-            BeamDirection direction = beam.Direction;
+            int energizedCount = 0;
 
             while (true)
             {
-                if (direction == BeamDirection.Left)
+                if (direction == BeamDirection.GoingLeft)
                 {
                     x--;
                     if (x < 0)
@@ -137,21 +112,21 @@
 
                     if ((tile & Tile.MirrorBottomLeftTopRight) != 0)
                     {
-                        direction = BeamDirection.Bottom;
+                        direction = BeamDirection.GoingDown;
                     }
                     else if ((tile & Tile.MirrorTopLeftBottomRight) != 0)
                     {
-                        direction = BeamDirection.Top;
+                        direction = BeamDirection.GoingUp;
                     }
                     else if ((tile & Tile.MirrorTopBottom) != 0)
                     {
                         // We change to a top beam
-                        direction = BeamDirection.Top;
+                        direction = BeamDirection.GoingUp;
                         // And we add a bottom beam
-                        beams.Push(new(BeamDirection.Bottom, 0, x, y));
+                        energizedCount += ProcessBeam(BeamDirection.GoingDown, x, y, map, width, height);
                     }
                 }
-                else if (direction == BeamDirection.Right)
+                else if (direction == BeamDirection.GoingRight)
                 {
                     x++;
                     if (x >= width)
@@ -180,21 +155,21 @@
 
                     if ((tile & Tile.MirrorBottomLeftTopRight) != 0)
                     {
-                        direction = BeamDirection.Top;
+                        direction = BeamDirection.GoingUp;
                     }
                     else if ((tile & Tile.MirrorTopLeftBottomRight) != 0)
                     {
-                        direction = BeamDirection.Bottom;
+                        direction = BeamDirection.GoingDown;
                     }
                     else if ((tile & Tile.MirrorTopBottom) != 0)
                     {
                         // We change to a top beam
-                        direction = BeamDirection.Top;
+                        direction = BeamDirection.GoingUp;
                         // And we add a bottom beam
-                        beams.Push(new(BeamDirection.Bottom, 0, x, y));
+                        energizedCount += ProcessBeam(BeamDirection.GoingDown, x, y, map, width, height);
                     }
                 }
-                else if (direction == BeamDirection.Top)
+                else if (direction == BeamDirection.GoingUp)
                 {
                     y--;
                     if (y < 0)
@@ -223,21 +198,21 @@
 
                     if ((tile & Tile.MirrorBottomLeftTopRight) != 0)
                     {
-                        direction = BeamDirection.Right;
+                        direction = BeamDirection.GoingRight;
                     }
                     else if ((tile & Tile.MirrorTopLeftBottomRight) != 0)
                     {
-                        direction = BeamDirection.Left;
+                        direction = BeamDirection.GoingLeft;
                     }
                     else if ((tile & Tile.MirrorLeftRight) != 0)
                     {
                         // We change to a right beam
-                        direction = BeamDirection.Right;
+                        direction = BeamDirection.GoingRight;
                         // And we add a left beam
-                        beams.Push(new(BeamDirection.Left, 0, x, y));
+                        energizedCount += ProcessBeam(BeamDirection.GoingLeft, x, y, map, width, height);
                     }
                 }
-                else if (direction == BeamDirection.Bottom)
+                else if (direction == BeamDirection.GoingDown)
                 {
                     y++;
                     if (y >= height)
@@ -266,18 +241,18 @@
 
                     if ((tile & Tile.MirrorBottomLeftTopRight) != 0)
                     {
-                        direction = BeamDirection.Left;
+                        direction = BeamDirection.GoingLeft;
                     }
                     else if ((tile & Tile.MirrorTopLeftBottomRight) != 0)
                     {
-                        direction = BeamDirection.Right;
+                        direction = BeamDirection.GoingRight;
                     }
                     else if ((tile & Tile.MirrorLeftRight) != 0)
                     {
                         // We change to a right beam
-                        direction = BeamDirection.Right;
+                        direction = BeamDirection.GoingRight;
                         // And we add a left beam
-                        beams.Push(new(BeamDirection.Left, 0, x, y));
+                        energizedCount += ProcessBeam(BeamDirection.GoingLeft, x, y, map, width, height);
                     }
                 }
             }
@@ -304,13 +279,12 @@
             }
         }
 
-        [Flags]
         private enum BeamDirection
         {
-            Left = 0b0001_0000,
-            Right = 0b0010_0000,
-            Bottom = 0b0100_0000,
-            Top = 0b1000_0000,
+            GoingLeft,
+            GoingRight,
+            GoingDown,
+            GoingUp,
         }
 
         [Flags]
@@ -327,7 +301,5 @@
             BeamFromTop = 0b1000_0000,
             IsEnergized = BeamFromLeft | BeamFromRight | BeamFromTop | BeamFromBottom
         }
-
-        private readonly record struct Beam(BeamDirection Direction, int EnergizedCount, int X, int Y);
     }
 }
