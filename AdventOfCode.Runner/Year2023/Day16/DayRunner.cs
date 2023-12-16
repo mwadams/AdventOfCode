@@ -42,6 +42,48 @@
             where TFormatter : IResultFormatter
         {
             long result = 0;
+            int width = lines[0].Length;
+            int height = lines.Length;
+            Span<Tile> map = stackalloc Tile[width * height];
+            Span<Tile> mapBackup = stackalloc Tile[width * height];
+
+            BuildMap(lines, map);
+
+            map.CopyTo(mapBackup);
+
+            Stack<Beam> beams = new();
+
+            for (int x = 0; x < width; x++)
+            {
+                beams.Push(new Beam(BeamDirection.Bottom, 0, x, -1));
+                result = Math.Max(result, Process(beams, map, width, height));
+
+                mapBackup.CopyTo(map);
+
+                beams.Push(new Beam(BeamDirection.Top, 0, x, height));
+                result = Math.Max(result, Process(beams, map, width, height));
+
+                // We *do* copy this time to prep for the first y
+                mapBackup.CopyTo(map);
+            }
+
+            for (int y = 0; y < height; y++)
+            {
+                beams.Push(new Beam(BeamDirection.Right, 0, -1, y));
+                result = Math.Max(result, Process(beams, map, width, height));
+
+                mapBackup.CopyTo(map);
+
+                beams.Push(new Beam(BeamDirection.Left, 0, width, y));
+                result = Math.Max(result, Process(beams, map, width, height));
+
+                if (y != height - 1)
+                {
+                    // We don't copy the last time
+                    mapBackup.CopyTo(map);
+                }
+            }
+
             formatter.Format(result);
         }
 
@@ -95,7 +137,7 @@
 
                     if ((tile & Tile.MirrorBottomLeftTopRight) != 0)
                     {
-                        direction = BeamDirection.Bottom;                        
+                        direction = BeamDirection.Bottom;
                     }
                     else if ((tile & Tile.MirrorTopLeftBottomRight) != 0)
                     {
@@ -106,7 +148,7 @@
                         // We change to a top beam
                         direction = BeamDirection.Top;
                         // And we add a bottom beam
-                        beams.Push(new(BeamDirection.Bottom, 0,x, y));
+                        beams.Push(new(BeamDirection.Bottom, 0, x, y));
                     }
                 }
                 else if (direction == BeamDirection.Right)
