@@ -33,7 +33,7 @@
                     switch (line[index])
                     {
                         case ',':
-                            step = Bind(step, CreateStep(label, property, @operator, comparisonValue, result));
+                            step = Bind(step, CreateStep(property, @operator, comparisonValue, result));
                             index++;
                             property = Property.None;
                             @operator = Operator.None;
@@ -41,7 +41,7 @@
                             result = default;
                             break;
                         case '}':
-                            step = Bind(step, CreateStep(label, property, @operator, comparisonValue, result));
+                            step = Bind(step, CreateStep(property, @operator, comparisonValue, result));
                             steps.Add(label, step);
                             step = Identity();
                             index++;
@@ -155,7 +155,6 @@
         }
 
         private static WorkflowStep CreateStep(
-            int label,
             Property building,
             Operator operation,
             int comparison,
