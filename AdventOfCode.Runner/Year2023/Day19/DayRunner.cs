@@ -45,6 +45,12 @@
             where TFormatter : IResultFormatter
         {
             long result = 0;
+            Dictionary<string, Part2.WorkflowStep> steps = [];
+
+            Part2.WorkflowStep initialStep = Part2.BuildWorkflowSteps(lines, steps);
+            Part2.State state = initialStep(Part2.State.For(new(1, 4001), steps));
+
+            result = state.Total;
             formatter.Format(result);
         }
     }
