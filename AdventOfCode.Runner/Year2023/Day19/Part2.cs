@@ -19,7 +19,7 @@
                 int labelIndex = line.IndexOf('{');
                 int label = MakeLabel(line[..labelIndex]);
 
-                WorkflowStep step = Identity();
+                WorkflowStep? step = null;
 
                 int index = labelIndex + 1;
 
@@ -43,7 +43,7 @@
                         case '}':
                             step = Bind(step, CreateStep(property, @operator, comparisonValue, result));
                             steps.Add(label, step);
-                            step = Identity();
+                            step = null;
                             index++;
                             property = Property.None;
                             @operator = Operator.None;
@@ -238,264 +238,277 @@
             return x.Length() * m.Length() * a.Length() * s.Length();
         }
 
-        private static WorkflowStep Identity() =>
-            state => state;
-
         private static WorkflowStep Accept() =>
-            state => state with { Total = state.Total + GetRangeCombinations(state.X, state.M, state.A, state.S) };
+            static state => state with { Total = state.Total + GetRangeCombinations(state.X, state.M, state.A, state.S) };
 
         private static WorkflowStep Reject() =>
-            state => state;
+            static state => state;
 
         private static WorkflowStep Process(int processor) =>
             state => state.Steps[processor](state);
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void SplitLessThan(in Range inputRange, int val, out Range acceptRange, out Range newRange)
+        {
+            acceptRange = new(Math.Min(inputRange.Min, val - 1), Math.Min(inputRange.Max, val));
+            newRange = new(Math.Max(inputRange.Min, val), Math.Max(inputRange.Max, val + 1));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void SplitGreaterThan(in Range inputRange, int val, out Range acceptRange, out Range newRange)
+        {
+            acceptRange = new(Math.Max(inputRange.Min, val + 1), Math.Max(inputRange.Max, val + 2));
+            newRange = new(Math.Min(inputRange.Min, val), Math.Min(inputRange.Max, val + 1));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static Range GreaterThanOrEqual(in Range inputRange, int val)
+        {
+            return new(Math.Max(inputRange.Min, val), Math.Max(inputRange.Max, val + 1));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static Range LessThanOrEqual(in Range inputRange, int val)
+        {
+            return new(Math.Min(inputRange.Min, val), Math.Min(inputRange.Max, val + 1));
+        }
+
         private static WorkflowStep AcceptXLessThan(int val) =>
-            state =>
-            {
-                Range processRange = new(Math.Min(state.X.Min, val - 1), Math.Min(state.X.Max, val));
-                Range newRange = new(Math.Max(state.X.Min, val), Math.Max(state.X.Max, val + 1));
-                return state with { X = newRange, Total = state.Total + GetRangeCombinations(processRange, state.M, state.A, state.S) };
-            };
+                state =>
+                {
+                    SplitLessThan(state.X, val, out Range processRange, out Range newRange);
+                    return state with { X = newRange, Total = state.Total + GetRangeCombinations(processRange, state.M, state.A, state.S) };
+                };
 
         private static WorkflowStep AcceptXGreaterThan(int val) =>
             state =>
             {
-                Range processRange = new(Math.Max(state.X.Min, val + 1), Math.Max(state.X.Max, val + 2));
-                Range newRange = new(Math.Min(state.X.Min, val), Math.Min(state.X.Max, val + 1));
+                SplitGreaterThan(state.X, val, out Range processRange, out Range newRange);
                 return state with { X = newRange, Total = state.Total + GetRangeCombinations(processRange, state.M, state.A, state.S) };
             };
 
         private static WorkflowStep AcceptMLessThan(int val) =>
             state =>
             {
-                Range processRange = new(Math.Min(state.M.Min, val - 1), Math.Min(state.M.Max, val));
-                Range newRange = new(Math.Max(state.M.Min, val), Math.Max(state.M.Max, val + 1));
+                SplitLessThan(state.M, val, out Range processRange, out Range newRange);
                 return state with { M = newRange, Total = state.Total + GetRangeCombinations(state.X, processRange, state.A, state.S) };
             };
 
         private static WorkflowStep AcceptMGreaterThan(int val) =>
             state =>
             {
-                Range processRange = new(Math.Max(state.M.Min, val + 1), Math.Max(state.M.Max, val + 2));
-                Range newRange = new(Math.Min(state.M.Min, val), Math.Min(state.M.Max, val + 1));
+                SplitGreaterThan(state.M, val, out Range processRange, out Range newRange);
                 return state with { M = newRange, Total = state.Total + GetRangeCombinations(state.X, processRange, state.A, state.S) };
             };
 
         private static WorkflowStep AcceptALessThan(int val) =>
             state =>
             {
-                Range processRange = new(Math.Min(state.A.Min, val - 1), Math.Min(state.A.Max, val));
-                Range newRange = new(Math.Max(state.A.Min, val), Math.Max(state.A.Max, val + 1));
+                SplitLessThan(state.A, val, out Range processRange, out Range newRange);
                 return state with { A = newRange, Total = state.Total + GetRangeCombinations(state.X, state.M, processRange, state.S) };
             };
 
         private static WorkflowStep AcceptAGreaterThan(int val) =>
             state =>
             {
-                Range processRange = new(Math.Max(state.A.Min, val + 1), Math.Max(state.A.Max, val + 2));
-                Range newRange = new(Math.Min(state.A.Min, val), Math.Min(state.A.Max, val + 1));
+                SplitGreaterThan(state.A, val, out Range processRange, out Range newRange);
                 return state with { A = newRange, Total = state.Total + GetRangeCombinations(state.X, state.M, processRange, state.S) };
             };
 
         private static WorkflowStep AcceptSLessThan(int val) =>
             state =>
             {
-                Range processRange = new(Math.Min(state.S.Min, val - 1), Math.Min(state.S.Max, val));
-                Range newRange = new(Math.Max(state.S.Min, val), Math.Max(state.S.Max, val + 1));
+                SplitLessThan(state.S, val, out Range processRange, out Range newRange);
                 return state with { S = newRange, Total = state.Total + GetRangeCombinations(state.X, state.M, state.A, processRange) };
             };
 
         private static WorkflowStep AcceptSGreaterThan(int val) =>
             state =>
             {
-                Range processRange = new(Math.Max(state.S.Min, val + 1), Math.Max(state.S.Max, val + 2));
-                Range newRange = new(Math.Min(state.S.Min, val), Math.Min(state.S.Max, val + 1));
+                SplitGreaterThan(state.S, val, out Range processRange, out Range newRange);
                 return state with { S = newRange, Total = state.Total + GetRangeCombinations(state.X, state.M, state.A, processRange) };
             };
 
         private static WorkflowStep RejectXLessThan(int val) =>
             state =>
             {
-                Range newRange = new(Math.Max(state.X.Min, val), Math.Max(state.X.Max, val + 1));
-                return state with { X = newRange };
+                return state with { X = GreaterThanOrEqual(state.X, val) };
             };
 
         private static WorkflowStep RejectXGreaterThan(int val) =>
             state =>
             {
-                Range newRange = new(Math.Min(state.X.Min, val), Math.Min(state.X.Max, val + 1));
-                return state with { X = newRange };
+                return state with { X = LessThanOrEqual(state.X, val) };
             };
 
         private static WorkflowStep RejectMLessThan(int val) =>
             state =>
             {
-                Range newRange = new(Math.Max(state.M.Min, val), Math.Max(state.M.Max, val + 1));
-                return state with { M = newRange };
+                return state with { M = GreaterThanOrEqual(state.M, val) };
             };
 
         private static WorkflowStep RejectMGreaterThan(int val) =>
             state =>
             {
-                Range newRange = new(Math.Min(state.M.Min, val), Math.Min(state.M.Max, val + 1));
-                return state with { M = newRange };
+                return state with { M = LessThanOrEqual(state.M, val) };
             };
 
         private static WorkflowStep RejectALessThan(int val) =>
             state =>
             {
-                Range newRange = new(Math.Max(state.A.Min, val), Math.Max(state.A.Max, val + 1));
-                return state with { A = newRange };
+                return state with { A = GreaterThanOrEqual(state.A, val) };
             };
 
         private static WorkflowStep RejectAGreaterThan(int val) =>
             state =>
             {
-                Range newRange = new(Math.Min(state.A.Min, val), Math.Min(state.A.Max, val + 1));
-                return state with { A = newRange };
+                return state with { A = LessThanOrEqual(state.A, val) };
             };
 
         private static WorkflowStep RejectSLessThan(int val) =>
             state =>
             {
-                Range newRange = new(Math.Max(state.S.Min, val), Math.Max(state.S.Max, val + 1));
-                return state with { S = newRange };
+                return state with { S = GreaterThanOrEqual(state.S, val) };
             };
 
         private static WorkflowStep RejectSGreaterThan(int val) =>
             state =>
             {
-                Range newRange = new(Math.Min(state.S.Min, val), Math.Min(state.S.Max, val + 1));
-                return state with { S = newRange };
+                return state with { S = LessThanOrEqual(state.S, val) };
             };
 
         private static WorkflowStep ProcessXLessThan(int val, int processor) =>
             state =>
             {
+                SplitLessThan(state.X, val, out Range processRange, out Range newRange);
+
                 State currentState = state;
-                Range processRange = new(Math.Min(state.X.Min, val - 1), Math.Min(state.X.Max, val));
+
                 if (processRange.Length() > 0)
                 {
                     currentState = state.Steps[processor](state with { X = processRange });
                 }
 
-                // This is the range that's greater than or equal to the value 
-                Range newRange = new(Math.Max(state.X.Min, val), Math.Max(state.X.Max, val + 1));
                 return state with { X = newRange, Total = currentState.Total };
             };
 
         private static WorkflowStep ProcessXGreaterThan(int val, int processor) =>
             state =>
             {
+                SplitGreaterThan(state.X, val, out Range processRange, out Range newRange);
+
                 State currentState = state;
-                Range processRange = new(Math.Max(state.X.Min, val + 1), Math.Max(state.X.Max, val + 2));
+
                 if (processRange.Length() > 0)
                 {
                     currentState = state.Steps[processor](state with { X = processRange });
                 }
 
-                // This is the range that's less than or equal to the value 
-                Range newRange = new(Math.Min(state.X.Min, val), Math.Min(state.X.Max, val + 1));
                 return state with { X = newRange, Total = currentState.Total };
             };
 
         private static WorkflowStep ProcessMLessThan(int val, int processor) =>
             state =>
             {
+                SplitLessThan(state.M, val, out Range processRange, out Range newRange);
+
                 State currentState = state;
-                Range processRange = new(Math.Min(state.M.Min, val - 1), Math.Min(state.M.Max, val));
+
                 if (processRange.Length() > 0)
                 {
                     currentState = state.Steps[processor](state with { M = processRange });
                 }
 
-                // This is the range that's greater than or equal to the value 
-                Range newRange = new(Math.Max(state.M.Min, val), Math.Max(state.M.Max, val + 1));
                 return state with { M = newRange, Total = currentState.Total };
             };
 
         private static WorkflowStep ProcessMGreaterThan(int val, int processor) =>
             state =>
             {
+                SplitGreaterThan(state.M, val, out Range processRange, out Range newRange);
+
                 State currentState = state;
-                Range processRange = new(Math.Max(state.M.Min, val + 1), Math.Max(state.M.Max, val + 2));
+
                 if (processRange.Length() > 0)
                 {
                     currentState = state.Steps[processor](state with { M = processRange });
                 }
 
-                // This is the range that's less than or equal to the value 
-                Range newRange = new(Math.Min(state.M.Min, val), Math.Min(state.M.Max, val + 1));
                 return state with { M = newRange, Total = currentState.Total };
             };
 
         private static WorkflowStep ProcessALessThan(int val, int processor) =>
             state =>
             {
+                SplitLessThan(state.A, val, out Range processRange, out Range newRange);
+
                 State currentState = state;
-                Range processRange = new(Math.Min(state.A.Min, val - 1), Math.Min(state.A.Max, val));
+
                 if (processRange.Length() > 0)
                 {
                     currentState = state.Steps[processor](state with { A = processRange });
                 }
 
-                // This is the range that's greater than or equal to the value 
-                Range newRange = new(Math.Max(state.A.Min, val), Math.Max(state.A.Max, val + 1));
                 return state with { A = newRange, Total = currentState.Total };
             };
 
         private static WorkflowStep ProcessAGreaterThan(int val, int processor) =>
             state =>
             {
+                SplitGreaterThan(state.A, val, out Range processRange, out Range newRange);
+
                 State currentState = state;
-                Range processRange = new(Math.Max(state.A.Min, val + 1), Math.Max(state.A.Max, val + 2));
+
                 if (processRange.Length() > 0)
                 {
                     currentState = state.Steps[processor](state with { A = processRange });
                 }
 
-                // This is the range that's less than or equal to the value 
-                Range newRange = new(Math.Min(state.A.Min, val), Math.Min(state.A.Max, val + 1));
                 return state with { A = newRange, Total = currentState.Total };
             };
 
         private static WorkflowStep ProcessSLessThan(int val, int processor) =>
             state =>
             {
+                SplitLessThan(state.S, val, out Range processRange, out Range newRange);
+
                 State currentState = state;
-                Range processRange = new(Math.Min(state.S.Min, val - 1), Math.Min(state.S.Max, val));
+
                 if (processRange.Length() > 0)
                 {
                     currentState = state.Steps[processor](state with { S = processRange });
                 }
 
-                // This is the range that's greater than or equal to the value 
-                Range newRange = new(Math.Max(state.S.Min, val), Math.Max(state.S.Max, val + 1));
                 return state with { S = newRange, Total = currentState.Total };
             };
 
         private static WorkflowStep ProcessSGreaterThan(int val, int processor) =>
             state =>
             {
+                SplitGreaterThan(state.S, val, out Range processRange, out Range newRange);
+
                 State currentState = state;
-                Range processRange = new(Math.Max(state.S.Min, val + 1), Math.Max(state.S.Max, val + 2));
+
                 if (processRange.Length() > 0)
                 {
                     currentState = state.Steps[processor](state with { S = processRange });
                 }
 
-                // This is the range that's less than or equal to the value 
-                Range newRange = new(Math.Min(state.S.Min, val), Math.Min(state.S.Max, val + 1));
                 return state with { S = newRange, Total = currentState.Total };
             };
 
 
-        private static WorkflowStep Bind(WorkflowStep first, WorkflowStep second) =>
-            state =>
+        private static WorkflowStep Bind(WorkflowStep? first, WorkflowStep second)
+        {
+            if (first is null)
             {
-                return second(first(state));
-            };
+                return state =>
+                {
+                    return second(state);
+                };
+            }
 
+            return state => second(first(state));
+        }
     }
 }

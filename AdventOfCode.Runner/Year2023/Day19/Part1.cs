@@ -46,7 +46,7 @@
 
                 int label = MakeLabel(line[..labelIndex]);
                 
-                WorkflowStep step = Identity();
+                WorkflowStep? step = null;
 
                 int index = labelIndex + 1;
 
@@ -70,7 +70,7 @@
                         case '}':
                             step = Bind(step, CreateStep(property, @operator, comparisonValue, result));
                             steps.Add(label, step);
-                            step = Identity();
+                            step = null;
                             index++;
                             property = Property.None;
                             @operator = Operator.None;
@@ -220,20 +220,24 @@
             GreaterThan,
         }
 
-        private static WorkflowStep Bind(WorkflowStep first, WorkflowStep second) =>
-            state =>
+        private static WorkflowStep Bind(WorkflowStep? first, WorkflowStep second)
+        {
+            if (first is null)
             {
-                state = first(state);
-                if (state.Result == Result.Continue)
-                {
-                    return second(state);
-                }
+                return state => second(state);
+            }
 
-                return state;
-            };
+            return state =>
+             {
+                 state = first(state);
+                 if (state.Result == Result.Continue)
+                 {
+                     return second(state);
+                 }
 
-        private static WorkflowStep Identity() =>
-            state => state;
+                 return state;
+             };
+        }
 
         private static WorkflowStep Accept() =>
             state => state with { Result = Result.Accept };
