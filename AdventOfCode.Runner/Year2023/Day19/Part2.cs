@@ -4,17 +4,20 @@
 
     internal static class Part2
     {
-        public static WorkflowStep BuildWorkflowSteps(ReadOnlySpan<string> lines, Dictionary<string, WorkflowStep> steps)
+        private static readonly int inLabel = MakeLabel("in");
+
+
+        public static WorkflowStep BuildWorkflowSteps(ReadOnlySpan<string> lines, Dictionary<int, WorkflowStep> steps)
         {
             foreach (ReadOnlySpan<char> line in lines)
             {
                 if (line.IsEmpty)
                 {
-                    return steps["in"];
+                    return steps[inLabel];
                 }
 
                 int labelIndex = line.IndexOf('{');
-                string label = line[..labelIndex].ToString();
+                int label = MakeLabel(line[..labelIndex]);
 
                 WorkflowStep step = Identity();
 
@@ -99,6 +102,19 @@
             GreaterThan,
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static int MakeLabel(ReadOnlySpan<char> span)
+        {
+            int label = 0;
+
+            for (int index = 0; index < span.Length; ++index)
+            {
+                label += span[index] << (8 * index);
+            }
+
+            return label;
+        }
+
         private static int SetResult(ReadOnlySpan<char> line, int index, out ReadOnlySpan<char> result)
         {
             int nextIndex = line[index..].IndexOfAny(",}") + index;
@@ -109,7 +125,7 @@
         private static int SetResultOrProperty(
             ReadOnlySpan<char> line,
             int index,
-            Dictionary<string, WorkflowStep> steps,
+            Dictionary<int, WorkflowStep> steps,
             Property property,
             out ReadOnlySpan<char> result,
             out Property propertyResult)
@@ -139,7 +155,7 @@
         }
 
         private static WorkflowStep CreateStep(
-            string label,
+            int label,
             Property building,
             Operator operation,
             int comparison,
@@ -164,23 +180,23 @@
                 (Property.A, Operator.GreaterThan, 'R') => RejectAGreaterThan(comparison),
                 (Property.S, Operator.LessThan, 'R') => RejectSLessThan(comparison),
                 (Property.S, Operator.GreaterThan, 'R') => RejectSGreaterThan(comparison),
-                (Property.X, Operator.LessThan, _) => ProcessXLessThan(comparison, result.ToString()),
-                (Property.X, Operator.GreaterThan, _) => ProcessXGreaterThan(comparison, result.ToString()),
-                (Property.M, Operator.LessThan, _) => ProcessMLessThan(comparison, result.ToString()),
-                (Property.M, Operator.GreaterThan, _) => ProcessMGreaterThan(comparison, result.ToString()),
-                (Property.A, Operator.LessThan, _) => ProcessALessThan(comparison, result.ToString()),
-                (Property.A, Operator.GreaterThan, _) => ProcessAGreaterThan(comparison, result.ToString()),
-                (Property.S, Operator.LessThan, _) => ProcessSLessThan(comparison, result.ToString()),
-                (Property.S, Operator.GreaterThan, _) => ProcessSGreaterThan(comparison, result.ToString()),
+                (Property.X, Operator.LessThan, _) => ProcessXLessThan(comparison, MakeLabel(result)),
+                (Property.X, Operator.GreaterThan, _) => ProcessXGreaterThan(comparison, MakeLabel(result)),
+                (Property.M, Operator.LessThan, _) => ProcessMLessThan(comparison, MakeLabel(result)),
+                (Property.M, Operator.GreaterThan, _) => ProcessMGreaterThan(comparison, MakeLabel(result)),
+                (Property.A, Operator.LessThan, _) => ProcessALessThan(comparison, MakeLabel(result)),
+                (Property.A, Operator.GreaterThan, _) => ProcessAGreaterThan(comparison, MakeLabel(result)),
+                (Property.S, Operator.LessThan, _) => ProcessSLessThan(comparison, MakeLabel(result)),
+                (Property.S, Operator.GreaterThan, _) => ProcessSGreaterThan(comparison, MakeLabel(result)),
                 (_, _, 'A') => Accept(),
                 (_, _, 'R') => Reject(),
-                _ => Process(result.ToString()),
+                _ => Process(MakeLabel(result)),
             };
         }
 
         public readonly struct State
         {
-            private State(Range x, Range m, Range a, Range s, long total, Dictionary<string, WorkflowStep> steps)
+            private State(Range x, Range m, Range a, Range s, long total, Dictionary<int, WorkflowStep> steps)
             {
                 X = x;
                 M = m;
@@ -200,9 +216,9 @@
 
             public long Total { get; init; }
 
-            public Dictionary<string, WorkflowStep> Steps { get; init; }
+            public Dictionary<int, WorkflowStep> Steps { get; init; }
 
-            public static State For(Range range, Dictionary<string, WorkflowStep> steps)
+            public static State For(Range range, Dictionary<int, WorkflowStep> steps)
             {
                 return new(range, range, range, range, 0, steps);
             }
@@ -232,7 +248,7 @@
         private static WorkflowStep Reject() =>
             state => state;
 
-        private static WorkflowStep Process(string processor) =>
+        private static WorkflowStep Process(int processor) =>
             state => state.Steps[processor](state);
 
         private static WorkflowStep AcceptXLessThan(int val) =>
@@ -355,7 +371,7 @@
                 return state with { S = newRange };
             };
 
-        private static WorkflowStep ProcessXLessThan(int val, string processor) =>
+        private static WorkflowStep ProcessXLessThan(int val, int processor) =>
             state =>
             {
                 State currentState = state;
@@ -370,7 +386,7 @@
                 return state with { X = newRange, Total = currentState.Total };
             };
 
-        private static WorkflowStep ProcessXGreaterThan(int val, string processor) =>
+        private static WorkflowStep ProcessXGreaterThan(int val, int processor) =>
             state =>
             {
                 State currentState = state;
@@ -385,7 +401,7 @@
                 return state with { X = newRange, Total = currentState.Total };
             };
 
-        private static WorkflowStep ProcessMLessThan(int val, string processor) =>
+        private static WorkflowStep ProcessMLessThan(int val, int processor) =>
             state =>
             {
                 State currentState = state;
@@ -400,7 +416,7 @@
                 return state with { M = newRange, Total = currentState.Total };
             };
 
-        private static WorkflowStep ProcessMGreaterThan(int val, string processor) =>
+        private static WorkflowStep ProcessMGreaterThan(int val, int processor) =>
             state =>
             {
                 State currentState = state;
@@ -415,7 +431,7 @@
                 return state with { M = newRange, Total = currentState.Total };
             };
 
-        private static WorkflowStep ProcessALessThan(int val, string processor) =>
+        private static WorkflowStep ProcessALessThan(int val, int processor) =>
             state =>
             {
                 State currentState = state;
@@ -430,7 +446,7 @@
                 return state with { A = newRange, Total = currentState.Total };
             };
 
-        private static WorkflowStep ProcessAGreaterThan(int val, string processor) =>
+        private static WorkflowStep ProcessAGreaterThan(int val, int processor) =>
             state =>
             {
                 State currentState = state;
@@ -445,7 +461,7 @@
                 return state with { A = newRange, Total = currentState.Total };
             };
 
-        private static WorkflowStep ProcessSLessThan(int val, string processor) =>
+        private static WorkflowStep ProcessSLessThan(int val, int processor) =>
             state =>
             {
                 State currentState = state;
@@ -460,7 +476,7 @@
                 return state with { S = newRange, Total = currentState.Total };
             };
 
-        private static WorkflowStep ProcessSGreaterThan(int val, string processor) =>
+        private static WorkflowStep ProcessSGreaterThan(int val, int processor) =>
             state =>
             {
                 State currentState = state;

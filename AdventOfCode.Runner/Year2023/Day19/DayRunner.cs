@@ -22,10 +22,10 @@
             where TFormatter : IResultFormatter
         {
             long result = 0;
-            Dictionary<string, Part1.WorkflowStep> steps = [];
+            Dictionary<int, Part1.WorkflowStep> steps = new(lines.Length);
 
             Part1.WorkflowStep initialStep = Part1.BuildWorkflowSteps(lines, steps);
-            
+
             int startLine = steps.Count + 1;
 
             foreach(ReadOnlySpan<char> line in lines.AsSpan()[startLine..])
@@ -45,7 +45,7 @@
             where TFormatter : IResultFormatter
         {
             long result = 0;
-            Dictionary<string, Part2.WorkflowStep> steps = [];
+            Dictionary<int, Part2.WorkflowStep> steps = new(lines.Length);
 
             Part2.WorkflowStep initialStep = Part2.BuildWorkflowSteps(lines, steps);
             Part2.State state = initialStep(Part2.State.For(new(1, 4001), steps));
