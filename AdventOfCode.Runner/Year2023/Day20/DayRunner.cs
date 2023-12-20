@@ -22,6 +22,15 @@
             where TFormatter : IResultFormatter
         {
             long result = 0;
+            var system = new System(this.lines);
+
+            for (int i = 0; i < 1000; ++i)
+            {
+                system.PushButton();
+            }
+
+            result = system.Low * system.High;
+
             formatter.Format(result);
         }
 
@@ -30,6 +39,307 @@
         {
             long result = 0;
             formatter.Format(result);
+        }
+
+        public class System
+        {
+            private Dictionary<int, IModule> modules;
+
+            private Queue<(int Source, Pulse Pulse, int Output)> pulses = [];
+
+            private long countHigh;
+            private long countLow;
+
+            private static readonly int BroadcasterKey = MakeKey("broadcaster");
+            private static readonly int ButtonKey = MakeKey("button");
+
+
+            public System(ReadOnlySpan<string> lines)
+            {
+                modules = new(lines.Length);
+                foreach (ReadOnlySpan<char> line in lines)
+                {
+                    AddModule(line);
+                }
+
+                foreach(KeyValuePair<int, IModule> module in modules)
+                {
+                    module.Value.SetOutputs();
+                }
+            }
+
+            public long Low => this.countLow;
+            public long High => this.countHigh;
+
+            public long Result => this.countHigh * this.countLow;
+
+            private void AddModule(ReadOnlySpan<char> line)
+            {
+                if (line[0] == '%')
+                {
+                    AddFlipFlop(line[1..]);
+                }
+                else if (line[0] == '&')
+                {
+                    AddConjunction(line[1..]);
+                }
+                else
+                {
+                    AddBroadcaster(line);
+                }
+            }
+
+            private void AddFlipFlop(ReadOnlySpan<char> line)
+            {
+                (int outputsIndex, int key) = MakeKeyForName(line);
+                int[] outputs = ParseOutputs(line[outputsIndex..]);
+                this.modules[key] = new FlipFlop(key, outputs, this);
+            }
+
+            private void AddConjunction(ReadOnlySpan<char> line)
+            {
+                (int outputsIndex, int key) = MakeKeyForName(line);
+                int[] outputs = ParseOutputs(line[outputsIndex..]);
+                this.modules[key] = new Conjunction(key, outputs, this);
+            }
+
+            private void AddBroadcaster(ReadOnlySpan<char> line)
+            {
+                (int outputsIndex, int key) = MakeKeyForName(line);
+                int[] outputs = ParseOutputs(line[outputsIndex..]);
+                this.modules[key] = new Broadcaster(key, outputs, this);
+            }
+
+            private static int[] ParseOutputs(ReadOnlySpan<char> line)
+            {
+                Span<int> outputs = stackalloc int[10];
+
+                int count = 0;
+                int index = 0;
+                int currentIndex = 0;
+                while (currentIndex < line.Length)
+                {
+                    if (line[currentIndex] == ',')
+                    {
+                        outputs[count++] = MakeKey(line[index..currentIndex]);
+                        index = currentIndex + 2; // Skip the space.
+                        currentIndex = index;
+                    }
+                    else
+                    {
+                        currentIndex++;
+                    }
+                }
+
+                outputs[count++] = MakeKey(line[index..]);
+
+                int[] result = new int[count];
+                outputs[..count].CopyTo(result);
+                return result;
+            }
+
+            private static (int OutputsIndex, int Key) MakeKeyForName(ReadOnlySpan<char> line)
+            {
+                int index = line.IndexOf('-');
+                return (index + 3, MakeKey(line[..(index - 1)]));
+            }
+
+            private static int MakeKey(ReadOnlySpan<char> name)
+            {
+                int result = 0;
+                for (int i = 0; i < Math.Min(name.Length, 4); ++i)
+                {
+                    result += name[i] << (i * 8);
+                }
+
+                return result;
+            }
+
+
+
+            public void PushButton()
+            {
+                SendPulse(ButtonKey, Pulse.Low, [BroadcasterKey]);
+
+                while (this.pulses.TryDequeue(out (int Source, Pulse Pulse, int Output) pulse))
+                {
+                    // There may be no module of that name e.g. "output" which just terminates
+                    // so TryGet() is used.
+                    if (this.modules.TryGetValue(pulse.Output, out IModule? value))
+                    {
+                        var module = this.modules[pulse.Output];
+                        module.SetInput(pulse.Source, pulse.Pulse);
+                    }
+                }
+            }
+
+            // Send a pulse to the given outputs
+            public void SendPulse(int source, Pulse pulse, int[] outputs)
+            {
+                if (pulse == Pulse.High)
+                {
+                    this.countHigh += outputs.Length;
+                }
+                else
+                {
+                    this.countLow += outputs.Length;
+                }
+
+                foreach (var output in outputs)
+                {
+                    this.pulses.Enqueue((source, pulse, output));
+                }
+            }
+
+            internal IModule? GetModule(int key)
+            {
+                return this.modules.TryGetValue(key, out IModule? value) ? value : null;
+            }
+        }
+
+        private static string GetName(int key)
+        {
+            char[] name = new char[4];
+
+            for (int i = 0; i < 4; ++i)
+            {
+                name[i] = (char)(byte)(key >> (8 * i));
+                if (name[i] == 0)
+                {
+                    return string.Create(i + 1, (name, i), (span, c) => c.name.AsSpan()[..c.i].CopyTo(span));
+                }
+            }
+
+            return string.Create(4, name, (span, c) => name.AsSpan().CopyTo(span));
+        }
+
+        public enum Pulse
+        {
+            High,
+            Low
+        }
+
+        public interface IModule
+        {
+            void SetInput(int source, Pulse pulse);
+
+            void AddInput(int source);
+            void SetOutputs();
+        }
+
+        public class FlipFlop(int Key, int[] Outputs, System System) : IModule
+        {
+            public bool State { get; private set; }
+            public int Key { get; private set; } = Key;
+            public int[] Outputs { get; private set; } = Outputs;
+
+            public System System { get; private set; } = System;
+
+            public void AddInput(int source)
+            {
+                // NOP
+            }
+
+            public void SetOutputs()
+            {
+                foreach(var output in Outputs)
+                {
+                    this.System.GetModule(output)?.AddInput(this.Key);
+                }
+            }
+
+            public void SetInput(int source, Pulse pulse)
+            {
+                if (pulse == Pulse.Low)
+                {
+                    if (State)
+                    {
+                        this.State = false;
+                        this.System.SendPulse(this.Key, Pulse.Low, this.Outputs);
+                    }
+                    else
+                    {
+                        this.State = true;
+                        this.System.SendPulse(this.Key, Pulse.High, this.Outputs);
+                    }
+                }
+            }
+        }
+
+        public class Broadcaster(int Key, int[] Outputs, System System) : IModule
+        {
+            public int Key { get; private set; } = Key;
+            public int[] Outputs { get; private set; } = Outputs;
+            public System System { get; private set; } = System;
+
+            public void AddInput(int source)
+            {
+                // NOP
+            }
+
+            public void SetOutputs()
+            {
+                foreach (var output in Outputs)
+                {
+                    this.System.GetModule(output)?.AddInput(this.Key);
+                }
+            }
+
+            public void SetInput(int source, Pulse pulse)
+            {
+                this.System.SendPulse(this.Key, pulse, this.Outputs);
+            }
+        }
+
+        public class Conjunction(int Key, int[] Outputs, System System) : IModule
+        {
+            private readonly int[] inputs = new int[8];
+            private int inputCount = 0;
+            private uint mask = 0;
+            public uint Bits { get; private set; }
+            public int Key { get; private set; } = Key;
+            public string KeyName => GetName(Key);
+            public int[] Outputs { get; private set; } = Outputs;
+            public System System { get; private set; } = System;
+            public ReadOnlySpan<int> Inputs => this.inputs.AsSpan()[..inputCount];
+
+            public void AddInput(int source)
+            {
+                this.inputs[this.inputCount] = source;
+                this.mask |= 1U << this.inputCount;
+                this.inputCount++;
+            }
+
+            public void SetOutputs()
+            {
+                foreach (var output in Outputs)
+                {
+                    this.System.GetModule(output)?.AddInput(this.Key);
+                }
+            }
+
+            public void SetInput(int source, Pulse pulse)
+            {
+                int index = this.Inputs.IndexOf(source);
+
+                if (pulse == Pulse.High)
+                {
+                    this.Bits |= 1U << index;
+                }
+                else
+                {
+                    this.Bits &= ~(1U << index);
+                }
+
+                if ((this.Bits ^ this.mask)  == 0)
+                {
+                    this.System.SendPulse(this.Key, Pulse.Low, this.Outputs);
+                }
+                else
+                {
+                    this.System.SendPulse(this.Key, Pulse.High, this.Outputs);
+                }
+            }
         }
     }
 }
