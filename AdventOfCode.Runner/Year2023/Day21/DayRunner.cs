@@ -45,17 +45,28 @@
             Span<Tile> map = stackalloc Tile[width * height];
             (int X, int Y, int Steps) startPosition = BuildMap(lines, map, width, height);
 
+            // The maximum possible number of steps you can drive in any direction without
+            // spilling into another map is 65; oddly enough this is also this modulo which we need
+            // for the extrapolation later.
             int steps = (int)(26501365L % width);
 
             // Run on the 1x1 map
             long result1 = Calculate(map, width, height, steps, startPosition);
 
-            // Expand to a 3x3 map
+            // Expand to a 3x3 map, and increment the number of steps by 1 full width (the number before
+            // we spill over again). The start point is shifted to the new centre of the grid (this only
+            // works because the grid is square and we start in the centre)
             long result3 = ExpandAndCalculate(3, map, width, height, startPosition, steps);
 
-            // Expand to a 5x5 map
+            // Expand to a 5x5 map, and increment the number of steps by 2 full widths (again, to avoid
+            // spilling over for the best case of "always driving to the edge).
             long result5 = ExpandAndCalculate(5, map, width, height, startPosition, steps);
 
+            // The search area expands proportionate to the square of the number of steps (actually half
+            // I think, because you can only go half way along and half way up at best); but any road up
+            // this makes the total reached steps a quadratic function of the number of steps.
+            // So with those 3 values we can figure out a, b, c from y = ax^2 + bx + c, and extrapolate
+            // to the total number of steps we actually require.
             result = ExtrapolateQuadratic(26501365L / width, result1, result3, result5);
 
             formatter.Format(result);
