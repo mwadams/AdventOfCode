@@ -61,7 +61,7 @@
             formatter.Format(result);
         }
 
-        private long ExtrapolateQuadratic(long target, long value1, long value2, long value3)
+        private static long ExtrapolateQuadratic(long target, long value1, long value2, long value3)
         {
             // Should have Googled this rather than worked it out by hand :-)
             long c = value1;
