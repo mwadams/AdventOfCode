@@ -2,6 +2,7 @@
 {
     using AdventOfCode.Common;
     using System.Threading.Tasks;
+    using static AdventOfCode.Runner.Year2023.Day20.DayRunner;
 
     public class DayRunner : IDay<DayRunner>
     {
@@ -38,7 +39,78 @@
             where TFormatter : IResultFormatter
         {
             long result = 0;
+
+            var system = new System(this.lines);
+
+            IModule broadcaster = system.GetModule(System.BroadcasterKey)!;
+
+            Span<long> counts = stackalloc long[broadcaster.Outputs.Length];
+
+            Queue<int> keyQueue = new Queue<int>(12);
+
+            for(int i = 0; i < broadcaster.Outputs.Length; ++i)
+            {
+                keyQueue.Enqueue(broadcaster.Outputs[i]);
+
+                int index = 0;
+                while(keyQueue.TryDequeue(out int key))
+                {                 
+                    IModule connected = system.GetModule(key)!;
+
+                    if (connected is FlipFlop ff)
+                    {
+                        foreach(var output in ff.Outputs)
+                        {
+                            IModule next = system.GetModule(output)!;
+                            if (next is FlipFlop)
+                            {
+                                keyQueue.Enqueue(output);
+                            }
+                            else
+                            {
+                                counts[i] |= 1L << index;
+                            }
+                        }
+                    }
+
+                    index++;
+                }
+            }
+
+            result = LowestCommonMultiple(counts);
+
             formatter.Format(result);
+        }
+
+        private static long LowestCommonMultiple(ReadOnlySpan<long> counts)
+        {
+            return LowestCommonMultiple(counts[0], counts[1..]);
+        }
+
+        private static long LowestCommonMultiple(long a, ReadOnlySpan<long> counts)
+        {
+            if (counts.Length == 1)
+            {
+                return LowestCommonMultiple(a, counts[0]);
+            }
+
+            return LowestCommonMultiple(a, LowestCommonMultiple(counts[0], counts[1..]));
+        }
+
+        private static long GreatestCommonFactor(long a, long b)
+        {
+            while (b != 0)
+            {
+                long temp = b;
+                b = a % b;
+                a = temp;
+            }
+            return a;
+        }
+
+        private static long LowestCommonMultiple(long a, long b)
+        {
+            return (a / GreatestCommonFactor(a, b)) * b;
         }
 
         public class System
@@ -50,8 +122,8 @@
             private long countHigh;
             private long countLow;
 
-            private static readonly int BroadcasterKey = MakeKey("broadcaster");
-            private static readonly int ButtonKey = MakeKey("button");
+            public static readonly int BroadcasterKey = MakeKey("broadcaster");
+            public static readonly int ButtonKey = MakeKey("button");
 
 
             public System(ReadOnlySpan<string> lines)
@@ -144,22 +216,9 @@
                 return (index + 3, MakeKey(line[..(index - 1)]));
             }
 
-            private static int MakeKey(ReadOnlySpan<char> name)
+            public void PushButton(int Key = -1)
             {
-                int result = 0;
-                for (int i = 0; i < Math.Min(name.Length, 4); ++i)
-                {
-                    result += name[i] << (i * 8);
-                }
-
-                return result;
-            }
-
-
-
-            public void PushButton()
-            {
-                SendPulse(ButtonKey, Pulse.Low, [BroadcasterKey]);
+                SendPulse(ButtonKey, Pulse.Low, [Key == -1 ? BroadcasterKey : Key]);
 
                 while (this.pulses.TryDequeue(out (int Source, Pulse Pulse, int Output) pulse))
                 {
@@ -195,6 +254,14 @@
             {
                 return this.modules.TryGetValue(key, out IModule? value) ? value : null;
             }
+
+            internal void Reset()
+            {
+                foreach(var module in this.modules.Values)
+                {
+                    module.Reset();
+                }
+            }
         }
 
         private static string GetName(int key)
@@ -224,7 +291,11 @@
             void SetInput(int source, Pulse pulse);
 
             void AddInput(int source);
+
             void SetOutputs();
+            void Reset();
+
+            public int[] Outputs { get; }
         }
 
         public class FlipFlop(int Key, int[] Outputs, System System) : IModule
@@ -238,6 +309,11 @@
             public void AddInput(int source)
             {
                 // NOP
+            }
+
+            public void Reset()
+            {
+                this.State = false;
             }
 
             public void SetOutputs()
@@ -277,6 +353,10 @@
                 // NOP
             }
 
+            public void Reset()
+            {
+            }
+
             public void SetOutputs()
             {
                 foreach (var output in Outputs)
@@ -310,6 +390,11 @@
                 this.inputCount++;
             }
 
+            public void Reset()
+            {
+                this.Bits = 0;
+            }
+
             public void SetOutputs()
             {
                 foreach (var output in Outputs)
@@ -340,6 +425,17 @@
                     this.System.SendPulse(this.Key, Pulse.High, this.Outputs);
                 }
             }
+        }
+
+        private static int MakeKey(ReadOnlySpan<char> name)
+        {
+            int result = 0;
+            for (int i = 0; i < Math.Min(name.Length, 4); ++i)
+            {
+                result += name[i] << (i * 8);
+            }
+
+            return result;
         }
     }
 }
